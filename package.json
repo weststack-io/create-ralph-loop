@@ -1,0 +1,42 @@
+{
+  "name": "create-ralph-loop",
+  "version": "1.0.0",
+  "description": "Scaffold a Ralph agentic automation loop for AI-driven iterative development",
+  "bin": {
+    "create-ralph-loop": "./dist/cli.js"
+  },
+  "files": [
+    "dist/",
+    "template/"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "claude",
+    "ai",
+    "agent",
+    "scaffold",
+    "automation",
+    "codex",
+    "ralph"
+  ],
+  "author": "weststack",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^12.0.0",
+    "chalk": "^5.0.0",
+    "fs-extra": "^11.0.0",
+    "inquirer": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.0",
+    "@types/inquirer": "^9.0.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

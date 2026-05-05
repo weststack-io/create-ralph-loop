@@ -1,0 +1,97 @@
+================================================================================
+  {{projectName}} — Application Specification
+================================================================================
+
+This document is the technical reference for coding agents. It specifies the
+tech stack, data models, API routes, business logic, and UI layout. The coding
+prompt (specs/phase1/prompts/coding_prompt.md) directs agents to reference this
+file when implementing features.
+
+Write this spec BEFORE running the initializer or the ralph loop.
+
+================================================================================
+  1. TECH STACK
+================================================================================
+
+Framework:    Next.js (App Router, TypeScript, Tailwind CSS)
+UI:           shadcn/ui
+Database:     Prisma + SQLite (or your choice)
+Testing:      Jest + Playwright MCP
+AI:           Claude API (@anthropic-ai/sdk)
+
+TODO: Add or modify the tech stack for your project. List every dependency
+the initializer should install.
+
+================================================================================
+  2. PROJECT STRUCTURE
+================================================================================
+
+TODO: Define the directory layout for your project. Example:
+
+src/
+├── app/                  # Next.js App Router pages and API routes
+│   ├── api/              # API route handlers
+│   ├── layout.tsx        # Root layout
+│   └── page.tsx          # Home page
+├── components/           # React components
+│   ├── layout/           # Layout components (sidebar, header)
+│   └── ui/               # shadcn/ui primitives
+├── lib/                  # Server-side utilities
+│   ├── db.ts             # Database client singleton
+│   └── env.ts            # Environment variable validation
+└── types/                # Shared TypeScript types
+    └── index.ts
+
+================================================================================
+  3. DATA MODELS
+================================================================================
+
+TODO: Define your Prisma models here. Example:
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+================================================================================
+  4. API ROUTES
+================================================================================
+
+TODO: Define your API routes. Example:
+
+GET  /api/health          → { status: "ok", timestamp }
+GET  /api/users           → { users: User[], total: number }
+POST /api/users           → { user: User }
+GET  /api/users/:id       → { user: User }
+
+================================================================================
+  5. BUSINESS LOGIC
+================================================================================
+
+TODO: Describe your core business logic, algorithms, scoring rules, pipelines,
+or processing steps here. This is where coding agents look for implementation
+details beyond simple CRUD.
+
+================================================================================
+  6. UI LAYOUT
+================================================================================
+
+TODO: Describe your UI layout. Example:
+
+- Fixed 240px left sidebar with navigation links
+- Top header bar with app title
+- Main content area with responsive layout
+- Pages: Dashboard, List view, Detail view
+
+================================================================================
+  7. ENVIRONMENT VARIABLES
+================================================================================
+
+TODO: List all environment variables. Example:
+
+DATABASE_URL=file:./dev.db
+ANTHROPIC_API_KEY=sk-ant-...
+LOG_LEVEL=info

@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "generated_by": "create-ralph-loop",
+  "generated_at": "{{createdAt}}",
+  "total_features": 5,
+  "features": [
+    {
+      "id": "INFRA-001",
+      "priority": 1,
+      "category": "infrastructure",
+      "description": "Project scaffolded with required dependencies installed and dev server running",
+      "steps": [
+        "Verify package.json exists with all required dependencies",
+        "Run 'npx tsc --noEmit' and confirm zero errors",
+        "Navigate to http://localhost:3000 and verify the page loads"
+      ],
+      "passes": false
+    },
+    {
+      "id": "INFRA-002",
+      "priority": 2,
+      "category": "infrastructure",
+      "description": "Database schema defined and migrations applied successfully",
+      "steps": [
+        "Verify database schema file exists with all models",
+        "Verify database can be queried without errors",
+        "Verify database client singleton is exported from src/lib/db.ts"
+      ],
+      "passes": false
+    },
+    {
+      "id": "UI-001",
+      "priority": 3,
+      "category": "ui",
+      "description": "Application shell with navigation layout and placeholder pages",
+      "steps": [
+        "Navigate to http://localhost:3000 and verify main layout renders",
+        "Verify navigation links are present and functional",
+        "Verify all placeholder pages load without errors"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-001",
+      "priority": 4,
+      "category": "feature",
+      "description": "TODO: Replace with your first feature description",
+      "steps": [
+        "TODO: Define verification step 1",
+        "TODO: Define verification step 2"
+      ],
+      "passes": false
+    },
+    {
+      "id": "FEAT-002",
+      "priority": 5,
+      "category": "feature",
+      "description": "TODO: Replace with your second feature description",
+      "steps": [
+        "TODO: Define verification step 1",
+        "TODO: Define verification step 2"
+      ],
+      "passes": false
+    }
+  ]
+}

@@ -1,0 +1,97 @@
+# {{projectName}}
+
+{{projectDescription}}
+
+Built with the [Ralph Loop](https://github.com/weststack/create-ralph-loop) — an agentic automation harness for AI-driven iterative development.
+
+## Quick Start
+
+### 1. Write your specs
+
+Before running anything, fill in these files:
+
+| File | Purpose |
+|---|---|
+| `specs/phase1/PRD.md` | Product requirements — what you're building and why |
+| `specs/phase1/app_spec.txt` | Technical specification — data models, API routes, business logic, UI layout |
+| `specs/phase1/feature_list.json` | Feature catalog — every feature with verification steps |
+| `specs/phase1/prompts/init_prompt.md` | Scaffolding instructions — review and customize for your project |
+
+### 2. Run the initializer (once)
+
+This scaffolds your project from your specs:
+
+```bash
+claude -p "$(cat specs/phase1/prompts/init_prompt.md)" \
+  --allowedTools "Read,Write,Edit,Glob,Grep,Bash"
+```
+
+### 3. Run the Ralph loop
+
+This iterates through your feature list, implementing one feature per session:
+
+```bash
+./ralph.sh --claude 20
+```
+
+Use `--codex` instead of `--claude` to use OpenAI Codex as the AI backend.
+
+## How It Works
+
+Ralph runs an automated loop of AI coding sessions. Each iteration:
+
+1. **Orients** — reads `progress.txt` and `feature_list.json` to understand current state
+2. **Checks regressions** — verifies 1-2 existing features still work
+3. **Picks a feature** — selects the highest-priority unfinished feature
+4. **Implements** — writes code following `app_spec.txt`
+5. **Tests** — runs unit tests, integration tests, and Playwright verification
+6. **Updates tracking** — marks the feature as passing, appends to `progress.txt`
+7. **Commits** — makes a clean git commit
+8. **Exits early** if all features pass (via `<promise>COMPLETE</promise>` sentinel)
+
+## Directory Structure
+
+```
+├── ralph.sh              # Main loop driver
+├── init.sh               # Environment setup (idempotent, run at start of each session)
+├── scripts/
+│   ├── dev-up.sh         # Start dev server in background
+│   └── dev-down.sh       # Stop dev server
+├── specs/phase1/
+│   ├── PRD.md            # Product requirements document
+│   ├── app_spec.txt      # Technical specification
+│   ├── feature_list.json # Feature catalog with pass/fail status
+│   └── prompts/
+│       ├── init_prompt.md    # One-time scaffolding instructions
+│       └── coding_prompt.md  # 10-step workflow (run each iteration)
+├── progress.txt          # Session log (appended by the agent)
+├── CLAUDE.md             # Claude Code project instructions
+├── AGENTS.md             # Agent behavior rules
+└── .mcp.json             # Playwright MCP server for browser testing
+```
+
+## Configuration
+
+### Environment Variables
+
+Copy `.env.example` to `.env.local` and fill in your values:
+
+```bash
+cp .env.example .env.local
+```
+
+### MCP (Model Context Protocol)
+
+`.mcp.json` configures the Playwright MCP server for browser-based testing. The coding agent uses this to take screenshots and verify UI features.
+
+### CLAUDE.md
+
+Add project-specific instructions for Claude Code in `CLAUDE.md`. The agent reads this file at the start of every session.
+
+## Requirements
+
+- **Node.js** >= 18
+- **npm**
+- **git**
+- **Claude CLI** (`claude`) or **Codex CLI** (`codex`)
+- **Bash shell** (Git Bash or WSL on Windows)

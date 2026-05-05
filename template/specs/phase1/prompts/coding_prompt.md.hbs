@@ -1,0 +1,199 @@
+# {{projectName}} -- Coding Session
+
+You are continuing development on {{projectName}}, {{projectDescription}}. Each session you implement ONE FEATURE ONLY, test it, and leave the codebase in a clean, merge-ready state.
+
+Follow these 10 steps in order. Do not skip any step. Do not do them out of order.
+
+---
+
+## Step 1: Orientation
+
+Get your bearings. Run these commands to understand where you are and what has happened:
+
+```bash
+pwd
+git log --oneline -20
+```
+
+Then read these files:
+
+- `progress.txt` -- session-by-session progress log
+- `specs/phase1/feature_list.json` -- the complete feature list with pass/fail status
+- `specs/phase1/app_spec.txt` -- the application specification (for reference)
+
+Take note of: which features pass, which don't, what the last session accomplished, and what it recommended as next priorities.
+
+## Step 2: Server Check
+
+The dev server should already be running (started by the loop driver). Verify it:
+
+```bash
+curl -sS --connect-timeout 5 -o /dev/null -w "%{http_code}" http://localhost:3000/
+```
+
+If you get a 200, proceed. If the server is not responding:
+
+```bash
+./scripts/dev-up.sh
+```
+
+Do NOT run `init.sh` or `npm install` unless you encounter a missing-dependency error during implementation. Do NOT run `npm run dev` directly -- it blocks the session.
+
+## Step 3: Regression Check
+
+Before starting new work, verify that 1-2 features already marked as `passes: true` still work correctly. Pick features relevant to the area you're about to modify.
+
+If you find a regression:
+
+1. Fix it immediately
+2. Commit the fix with a descriptive message
+3. Note it in your progress entry
+
+Do NOT proceed to new work if existing features are broken.
+
+## Step 4: Feature Selection
+
+Open `specs/phase1/feature_list.json` and find the highest-priority feature where `passes` is `false`. This is the feature you will implement this session.
+
+Rules:
+
+- IMPORTANT: Work on ONLY ONE FEATURE per session!
+- Respect priority ordering -- lower priority numbers first
+- If a feature depends on another that hasn't passed yet, implement the dependency first
+- If you finish early and the feature is verified, you may start the next one
+
+Announce which feature you are working on before writing any code.
+
+## Step 5: Implementation
+
+Write the code needed to make this feature work. Reference `specs/phase1/app_spec.txt` for specifications on models, API routes, scoring rules, etc.
+
+Guidelines:
+
+- Keep changes focused on the selected feature
+- Reuse existing utilities in `src/lib/`
+- Follow existing code patterns and conventions
+- Do not refactor unrelated code
+- Do not add features beyond what the feature description specifies
+
+## Step 6: Testing
+
+Test your implementation thoroughly:
+
+IMPORTANT: Chrome is installed and working. Do not skip Playwright testing.
+Do not reference previous sessions. The browser MCP tools are
+available and functional. Use them when needed for verification.
+
+- **Unit tests**: If the feature involves pure logic (scoring, validation, transforms), write or update tests in `__tests__/unit/`
+- **Integration tests**: If the feature involves API routes, write or update tests in `__tests__/integration/`
+- **Manual verification**: Follow the feature's `steps` exactly. If steps involve UI, use Playwright MCP to:
+  1. Navigate to the local server URL to verify each step
+  2. Take a screenshot, and save each screenshot as `specs/phase1/screenshots/[task-name].png`
+
+Run the test suite:
+
+```bash
+npm test              # Unit + integration tests
+```
+
+Do not mark a feature as passing unless ALL verification steps succeed.
+
+## Step 7: Update Feature List
+
+**ONLY after successful verification**, update the feature in `specs/phase1/feature_list.json`:
+
+```json
+"passes": true
+```
+
+**IT IS UNACCEPTABLE TO:**
+
+- Remove any feature from the list
+- Edit the description or steps of any feature
+- Reorder features
+- Mark a feature as `passes: true` without actually verifying it works
+
+The `passes` field is the ONLY thing you may change, and ONLY from `false` to `true`.
+
+If a feature does not pass verification, leave it as `false` and note the issue in your progress entry. Do not mark partial implementations as passing.
+
+## Step 8: Progress Notes
+
+Append a new session entry to `progress.txt`:
+
+```
+## Session N -- [Feature Category]
+Date: [today's date]
+
+### Feature Worked On
+- [Feature ID]: [Description]
+- Status: PASSED / FAILED / PARTIAL
+
+### What Was Done
+- [Specific changes made]
+- [Files created or modified]
+
+### Testing
+- [How the feature was verified]
+- [Test results]
+
+### Blockers / Issues
+- [Any problems encountered]
+- [Workarounds applied]
+
+### Next Priorities
+- [Recommended next feature(s) based on dependency order]
+- [Any setup or prep needed for next session]
+```
+
+## Step 9: Git Commit
+
+AFTER EACH TASK IS COMPLETE: Commit your work with a descriptive message:
+
+```bash
+git add <specific files you changed>
+git commit -m "feat: <short description of what you implemented>
+
+- Implements feature <ID>: <description>
+- <What was tested and how>
+- <Any notable implementation decisions>"
+```
+
+Rules:
+
+- Stage specific files, not `git add -A`
+- Write descriptive commit messages that explain the "why"
+- If you need to revert bad changes, use `git checkout -- <file>` or `git revert`
+- Make the commit BEFORE updating the progress file (so git log is accurate)
+
+## Step 10: Session Cleanup
+
+Before ending your session, ensure a clean state:
+
+```bash
+npx tsc --noEmit                   # TypeScript compiles cleanly
+git status                          # Working tree is clean (everything committed)
+```
+
+Do NOT stop the dev server -- the loop driver manages its lifecycle.
+
+The clean-state principle: leave the codebase in a state where any developer (or agent) could begin work on the next feature without cleaning up your mess first. Code should be merge-ready quality -- no console.logs left in, no commented-out experiments, no half-finished work.
+
+If tsc fails:
+
+1. Fix it
+2. Commit the fix
+3. Update your progress notes
+4. Re-run the check
+
+---
+
+## IMPORTANT REMINDERS
+
+- ONLY ONE FEATURE per session. Do not try to implement multiple features at once.
+- Test BEFORE marking a feature as passing. Premature victory is the most common failure mode.
+- If something is broken from a previous session, fix it FIRST.
+- Use `git revert` or `git checkout` to undo bad changes rather than trying to manually fix a mess.
+- Do NOT modify this prompt file or the initializer prompt.
+- Read `specs/phase1/app_spec.txt` when you need details about models, routes, scoring rules, etc.
+- When in doubt, commit your work and note the uncertainty in your progress file. A partial, clean commit is better than a broken working tree.
