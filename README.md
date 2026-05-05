@@ -1,6 +1,6 @@
 # create-ralph-loop
 
-Scaffold a [Ralph](https://github.com/weststack/create-ralph-loop) agentic automation loop for AI-driven iterative development.
+Scaffold a [Ralph](https://ghuntley.com/ralph/) agentic automation loop for AI-driven iterative development.
 
 Ralph is a harness that drives Claude (or Codex) through a structured, iterative feature-implementation workflow. You define your specs and feature list, and Ralph loops through them one at a time — implementing, testing, and committing each feature automatically.
 
@@ -135,7 +135,7 @@ Options:
 - **Node.js** >= 18
 - **npm**
 - **git**
-- **[Claude CLI](https://docs.anthropic.com/en/docs/claude-code)** or **Codex CLI**
+- **[Claude CLI](https://docs.anthropic.com/en/docs/claude-code)** or **[Codex CLI](https://github.com/openai/codex)**
 - **Bash shell** (native on macOS/Linux, Git Bash or WSL on Windows)
 
 ## License
