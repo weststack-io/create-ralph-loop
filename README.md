@@ -132,7 +132,7 @@ Options:
 
 ## Requirements
 
-- **Node.js** >= 18
+- **Node.js** >= 18 (v24 LTS recommended)
 - **npm**
 - **git**
 - **[Claude CLI](https://docs.anthropic.com/en/docs/claude-code)** or **[Codex CLI](https://github.com/openai/codex)**
