@@ -7,7 +7,7 @@ Ralph is a harness that drives Claude (or Codex) through a structured, iterative
 ## Quick Start
 
 ```bash
-npx create-ralph-loop my-project
+npx github:weststack-io/create-ralph-loop my-project
 cd my-project
 ```
 
@@ -85,6 +85,7 @@ Before running anything, fill in three key files:
 **`specs/phase1/app_spec.txt`** — The technical bible. Data models, API routes, business logic, UI layout. Agents reference this when implementing features.
 
 **`specs/phase1/feature_list.json`** — Every feature your project needs, with:
+
 - `id`: Unique identifier (e.g., `INFRA-001`, `FEAT-001`)
 - `priority`: Implementation order (lower = first)
 - `category`: Grouping (infrastructure, ui, api, feature, etc.)
