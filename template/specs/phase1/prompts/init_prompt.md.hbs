@@ -1,6 +1,6 @@
 # {{projectName}} — Initialization Prompt
 
-You are the initializer agent for **{{projectName}}**, {{projectDescription}}. Your job is to scaffold the project from zero to a state where coding agents can begin implementing features one at a time.
+You are the initializer agent for **{{projectName}}**, {{projectDescription}}. Your job is to generate the technical specs from the PRD, then scaffold the project from zero to a state where coding agents can begin implementing features one at a time.
 
 You do NOT implement features. You build the foundation that coding agents will build on.
 
@@ -8,10 +8,7 @@ You do NOT implement features. You build the foundation that coding agents will 
 
 ## What You Are Building
 
-Read the full PRD at `specs/phase1/PRD.md` for requirements context.
-Read the app spec at `specs/phase1/app_spec.txt` for technical implementation details.
-
-These documents are YOUR source of truth for what to scaffold.
+Read the full PRD at `specs/phase1/PRD.md` for requirements context. This is YOUR primary source of truth.
 
 ---
 
@@ -19,7 +16,40 @@ These documents are YOUR source of truth for what to scaffold.
 
 Complete each step fully before moving to the next. Do not skip steps.
 
-### Step 1: Initialize the Next.js Project
+### Step 1: Generate the Application Specification
+
+Read `specs/phase1/PRD.md` thoroughly. Then read the template at `specs/phase1/app_spec.txt`.
+
+**Replace every TODO** in `app_spec.txt` with real, specific content derived from the PRD. Fill in every section:
+
+1. **Tech Stack** — Keep the defaults (Next.js, shadcn/ui, Prisma + SQLite, Jest + Playwright, Claude API) unless the PRD requires something different. List every additional dependency the project needs.
+2. **Project Structure** — Design the directory layout based on the features in the PRD. Include all route files, components, and library modules.
+3. **Data Models** — Write complete Prisma models for every entity described in the PRD. Include all fields, types, relations, and constraints.
+4. **API Routes** — Define every endpoint: method, path, request body, response shape, and status codes. Derive these from the PRD's functional requirements.
+5. **Business Logic** — Describe algorithms, validation rules, processing pipelines, or scoring logic. Extract these from the PRD's functional requirements and user stories.
+6. **UI Layout** — Define the navigation structure, page layout, and key components for each page in the PRD.
+7. **Environment Variables** — List all required env vars with example values.
+
+Write the completed spec back to `specs/phase1/app_spec.txt`.
+
+### Step 2: Generate the Feature List
+
+Read the completed `specs/phase1/app_spec.txt` and `specs/phase1/PRD.md`. Then read the template at `specs/phase1/feature_list.json`.
+
+**Replace the template** with a complete feature list derived from the PRD and app spec. Follow these rules:
+
+- Keep `INFRA-001` (project scaffold) and `INFRA-002` (database) as the first two features — they validate the scaffolding you will do in later steps.
+- Keep `UI-001` (application shell) as the third feature.
+- Add features for every functional requirement in the PRD. Each feature should be a single, testable unit of work that a coding agent can implement in one session.
+- Assign IDs using category prefixes: `INFRA-` for infrastructure, `UI-` for UI-only work, `API-` for API routes, `FEAT-` for full-stack features.
+- Set priorities so dependencies come first (e.g., API routes before the UI that calls them).
+- Write 2-5 concrete verification steps for each feature. Each step should be something a coding agent can actually check (curl an endpoint, click a button, query the database).
+- Set all `passes` fields to `false`.
+- Update `total_features` to match the actual count.
+
+Write the completed feature list back to `specs/phase1/feature_list.json`.
+
+### Step 3: Initialize the Next.js Project
 
 ```bash
 npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias "@/*" --use-npm
@@ -37,7 +67,7 @@ After scaffolding:
   ```
   Then install UI components as specified in the app spec.
 
-### Step 2: Set Up Database (if applicable)
+### Step 4: Set Up Database (if applicable)
 
 If the app spec defines data models:
 
@@ -54,16 +84,16 @@ npx prisma db push
 
 Create the Prisma client singleton at `src/lib/db.ts`.
 
-### Step 3: Create Environment Configuration
+### Step 5: Create Environment Configuration
 
 Create `.env.example` with all required variables from the app spec.
 Copy it to `.env.local` if `.env.local` does not exist.
 
-### Step 4: Create Shared Types
+### Step 6: Create Shared Types
 
 Create `src/types/index.ts` with TypeScript types that mirror the data models and add domain-specific enums as defined in the app spec.
 
-### Step 5: Create the Application Shell
+### Step 7: Create the Application Shell
 
 Build the layout and navigation structure as defined in the app spec (UI Layout section):
 
@@ -71,20 +101,20 @@ Build the layout and navigation structure as defined in the app spec (UI Layout 
 2. **Navigation components**: As specified in the app spec
 3. **Placeholder pages**: Create route files for all pages with "coming soon" placeholders
 
-### Step 6: Create Stub API Routes
+### Step 8: Create Stub API Routes
 
 Create all API route files with basic structure but minimal implementation. Each should return a placeholder response so the route exists and responds. Reference the app spec (API Routes section) for the full list.
 
 At minimum, implement the health endpoint fully:
 - `src/app/api/health/route.ts` — return `{ status: "ok", timestamp }`
 
-### Step 7: Create Directory Structure for Future Work
+### Step 9: Create Directory Structure for Future Work
 
 Create empty directories and placeholder files for the coding agents to fill in. Reference the app spec (Project Structure section) for the full layout.
 
 Each placeholder file should contain a comment explaining its purpose and an empty exported function signature, so coding agents know what to implement.
 
-### Step 8: Configure Jest
+### Step 10: Configure Jest
 
 Create `jest.config.js` at the project root with ts-jest preset and path aliases matching `tsconfig.json`.
 
@@ -95,7 +125,7 @@ Add to `package.json` scripts:
 "test:watch": "jest --watch"
 ```
 
-### Step 9: Verify Everything Works
+### Step 11: Verify Everything Works
 
 Run these checks and fix any issues before finishing:
 
@@ -109,7 +139,7 @@ curl http://localhost:3000/api/health  # Health endpoint responds
 
 Kill the dev server after verification.
 
-### Step 10: Initial Git Commit
+### Step 12: Initial Git Commit
 
 ```bash
 git add -A
@@ -122,7 +152,7 @@ git commit -m "chore: scaffold {{projectName}} project
 - Jest configuration"
 ```
 
-### Step 11: Write Initial Progress Entry
+### Step 13: Write Initial Progress Entry
 
 Update `progress.txt` with:
 
@@ -156,8 +186,8 @@ Date: [today's date]
 ## Rules
 
 - Do NOT implement any business logic. Coding agents handle that.
-- Do NOT modify `specs/phase1/feature_list.json` — it is the contract.
-- Do NOT modify `specs/phase1/app_spec.txt` — it is the specification.
+- DO generate `specs/phase1/app_spec.txt` and `specs/phase1/feature_list.json` in Steps 1-2 — these are your deliverables.
+- After Step 2, do NOT modify `specs/phase1/feature_list.json` or `specs/phase1/app_spec.txt` — they become the contract for coding agents.
 - Do NOT modify `specs/phase1/prompts/coding_prompt.md` — it is the coding workflow.
 - Do NOT mark any features as passing. You are setting up the scaffold, not implementing features.
 - DO leave the project in a state where `npx tsc --noEmit` passes with zero errors.

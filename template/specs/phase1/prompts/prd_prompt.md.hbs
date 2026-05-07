@@ -1,0 +1,55 @@
+# {{projectName}} — PRD Generation Prompt
+
+You are a product analyst. Your job is to take a raw product idea and produce a complete Product Requirements Document for **{{projectName}}**.
+
+---
+
+## The Idea
+
+{{projectDescription}}
+
+> **Instructions to the user:** Before running this prompt, edit the project description above (or replace it with a more detailed description of your idea). The more detail you provide, the better the PRD will be. Include things like:
+> - What the app does and who it's for
+> - Key features and workflows
+> - Any technical constraints or preferences
+> - What "done" looks like for an MVP
+
+---
+
+## Your Task
+
+Read the PRD template at `specs/phase1/PRD.md`. It contains section headers with TODO placeholders.
+
+**Replace every TODO** with real, specific content based on the idea above. Write the completed PRD back to `specs/phase1/PRD.md`.
+
+### Section Guidelines
+
+1. **Executive Summary** — 2-3 sentences. What is this product, who uses it, and what does the MVP include?
+
+2. **Problem Statement** — What pain point does this solve? Who experiences it? What's the cost of not solving it?
+
+3. **Goals and Non-Goals** — 3-5 concrete MVP goals. Non-goals should explicitly fence off v2+ scope so coding agents don't over-build.
+
+4. **User Stories** — 5-10 user stories in "As a [role], I want to [action] so that [benefit]" format. Cover the core workflows.
+
+5. **Functional Requirements** — Be specific:
+   - **Core Features:** List every feature the MVP needs, with enough detail that a developer could estimate the work.
+   - **Data Requirements:** What data does the system store, process, or display? What are the key entities?
+   - **API Requirements:** What endpoints are needed? What do they accept and return?
+   - **UI Requirements:** What pages exist? What can the user do on each page?
+
+6. **Non-Functional Requirements** — For an MVP, keep it practical: basic performance expectations, security basics (auth if needed), and a note on scalability scope (e.g., "single-user demo" or "multi-tenant").
+
+7. **Tech Stack Guidance** — Reference `specs/phase1/app_spec.txt` for the detailed spec. Note any specific libraries, APIs, or services the idea requires beyond the default stack (Next.js, Prisma, shadcn/ui).
+
+8. **Open Questions** — List 2-5 genuine decisions that could go either way. These help coding agents know where they have latitude.
+
+---
+
+## Rules
+
+- Write for a coding agent audience — be precise and unambiguous.
+- Scope to MVP. If a feature is nice-to-have, put it in Non-Goals.
+- Do NOT modify any file other than `specs/phase1/PRD.md`.
+- Do NOT start implementing code. This prompt only produces the PRD.
+- Do NOT modify any other files in the specs directory.

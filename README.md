@@ -2,7 +2,7 @@
 
 Scaffold a [Ralph](https://ghuntley.com/ralph/) agentic automation loop for AI-driven iterative development.
 
-Ralph is a harness that drives Claude (or Codex) through a structured, iterative feature-implementation workflow. You define your specs and feature list, and Ralph loops through them one at a time — implementing, testing, and committing each feature automatically.
+Ralph is a harness that drives Claude (or Codex) through a structured, iterative feature-implementation workflow. You describe your idea, the agents generate your specs and feature list, then Ralph loops through them one at a time — implementing, testing, and committing each feature automatically.
 
 ## Quick Start
 
@@ -11,11 +11,14 @@ npx github:weststack-io/create-ralph-loop my-project
 cd my-project
 ```
 
-Then fill in your specs and run the loop:
+Then describe your idea and let the agents do the rest:
 
 ```bash
-# 1. Write your specs (PRD, app_spec, feature_list)
-# 2. Run the initializer once:
+# 1. Edit specs/phase1/PRD.md with your idea (or generate it):
+claude -p "$(cat specs/phase1/prompts/prd_prompt.md)" \
+  --allowedTools "Read,Write,Edit,Glob,Grep,Bash"
+
+# 2. Generate specs, feature list, and scaffold the project:
 claude -p "$(cat specs/phase1/prompts/init_prompt.md)" \
   --allowedTools "Read,Write,Edit,Glob,Grep,Bash"
 
@@ -33,12 +36,13 @@ my-project/
 │   ├── dev-up.sh         # Start dev server in background
 │   └── dev-down.sh       # Stop dev server
 ├── specs/phase1/
-│   ├── PRD.md            # Product requirements (you fill this in)
-│   ├── app_spec.txt      # Technical specification (you fill this in)
-│   ├── feature_list.json # Feature catalog with pass/fail tracking
+│   ├── PRD.md            # Product requirements (generated from your idea)
+│   ├── app_spec.txt      # Technical specification (generated from PRD)
+│   ├── feature_list.json # Feature catalog with pass/fail tracking (generated from PRD)
 │   └── prompts/
-│       ├── init_prompt.md    # One-time scaffolding instructions
-│       └── coding_prompt.md  # 10-step workflow (run each iteration)
+│       ├── prd_prompt.md      # Generates PRD from your idea
+│       ├── init_prompt.md     # Generates specs + scaffolds the project
+│       └── coding_prompt.md   # 10-step workflow (run each iteration)
 ├── progress.txt          # Session log (appended by the agent)
 ├── CLAUDE.md             # Claude Code project instructions
 ├── AGENTS.md             # Agent behavior rules
@@ -76,35 +80,41 @@ ralph.sh [--claude|--codex] <iterations>
 
 ## The Workflow
 
-### 1. Define Your Specs
+### 1. Create Your Project
 
-Before running anything, fill in three key files:
+```bash
+npx github:weststack-io/create-ralph-loop my-project
+cd my-project
+```
 
-**`specs/phase1/PRD.md`** — What you're building and why. The agent reads this for context but doesn't modify it.
+This scaffolds the Ralph loop structure with prompts, scripts, and template spec files.
 
-**`specs/phase1/app_spec.txt`** — The technical bible. Data models, API routes, business logic, UI layout. Agents reference this when implementing features.
+### 2. Generate the PRD
 
-**`specs/phase1/feature_list.json`** — Every feature your project needs, with:
+Before running the PRD prompt, edit the project description at the top of `specs/phase1/prompts/prd_prompt.md` with a detailed description of your idea. The more detail you provide, the better the output. Then run:
 
-- `id`: Unique identifier (e.g., `INFRA-001`, `FEAT-001`)
-- `priority`: Implementation order (lower = first)
-- `category`: Grouping (infrastructure, ui, api, feature, etc.)
-- `description`: What the feature does
-- `steps`: Verification checklist (acceptance criteria)
-- `passes`: `false` initially, flipped to `true` by the agent after verification
+```bash
+claude -p "$(cat specs/phase1/prompts/prd_prompt.md)" \
+  --allowedTools "Read,Write,Edit,Glob,Grep,Bash"
+```
 
-### 2. Run the Initializer
+This generates a complete `specs/phase1/PRD.md` with requirements, user stories, and feature scope.
 
-The init prompt scaffolds your project from your specs. Run it once:
+Review the PRD and edit it if anything is off before moving on.
+
+### 3. Generate Specs and Scaffold
 
 ```bash
 claude -p "$(cat specs/phase1/prompts/init_prompt.md)" \
   --allowedTools "Read,Write,Edit,Glob,Grep,Bash"
 ```
 
-This creates your Next.js app, database, types, layout, stub routes, and test config.
+This does three things in one pass:
+1. **Generates `app_spec.txt`** — data models, API routes, business logic, UI layout — all derived from your PRD
+2. **Generates `feature_list.json`** — a prioritized list of features with verification steps, all marked `passes: false`
+3. **Scaffolds the project** — Next.js app, database, types, layout, stub routes, test config, and initial git commit
 
-### 3. Run the Loop
+### 4. Run the Loop
 
 ```bash
 ./ralph.sh --claude 20    # 20 iterations with Claude
@@ -113,7 +123,7 @@ This creates your Next.js app, database, types, layout, stub routes, and test co
 
 Each iteration implements one feature. The loop exits early when all features pass.
 
-### 4. Monitor Progress
+### 5. Monitor Progress
 
 - **`progress.txt`** — Read the session log to see what was done
 - **`specs/phase1/feature_list.json`** — Check which features have `"passes": true`
