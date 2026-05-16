@@ -26,6 +26,14 @@ claude -p "$(cat specs/phase1/prompts/init_prompt.md)" \
 ./ralph.sh --claude 20
 ```
 
+## Demo
+
+Watch the full walkthrough of using the Ralph loop to build a working app from scratch:
+
+[![Watch on YouTube](https://img.shields.io/badge/YouTube-Watch%20Walkthrough-red?logo=youtube)](https://youtu.be/InIwg8_B-2U?si=iydzSiO9k3KKZv2n)
+
+The demo app built in that video is available here: [weststack-io/tether](https://github.com/weststack-io/tether)
+
 ## What You Get
 
 ```
