@@ -6,6 +6,8 @@ Ralph is a harness that drives Claude (or Codex) through a structured, iterative
 
 ## Quick Start
 
+### New Project
+
 ```bash
 npx github:weststack-io/create-ralph-loop my-project
 cd my-project
@@ -24,6 +26,33 @@ claude -p "$(cat specs/phase1/prompts/init_prompt.md)" \
 
 # 3. Run the Ralph loop:
 ./ralph.sh --claude 20
+```
+
+### Existing Project
+
+Run adoption mode from an existing codebase:
+
+```bash
+cd my-existing-app
+npx github:weststack-io/create-ralph-loop --adopt
+```
+
+For non-interactive adoption, skip existing files and apply safe JSON/gitignore merges:
+
+```bash
+npx github:weststack-io/create-ralph-loop --adopt --yes
+```
+
+To reverse-engineer initial Ralph specs from the current codebase, use the installed Claude CLI:
+
+```bash
+npx github:weststack-io/create-ralph-loop --adopt --generate-specs
+```
+
+Use Codex for that generation pass instead:
+
+```bash
+npx github:weststack-io/create-ralph-loop --adopt --generate-specs --codex
 ```
 
 ## Demo
@@ -143,11 +172,23 @@ Each iteration implements one feature. The loop exits early when all features pa
 Usage: create-ralph-loop [options] [project-directory]
 
 Options:
-  -y, --yes       Use defaults for all prompts
-  --no-git        Skip git init
-  --no-install    Skip npm install
-  -h, --help      Display help
+  -y, --yes          Use defaults for all prompts
+  --no-git           Skip git init in greenfield mode
+  --no-install       Reserved for compatibility
+  --adopt            Adopt Ralph Loop into an existing project
+  --init             Alias for --adopt
+  --generate-specs   Generate adopted specs using an installed agent CLI
+  --codex            Use Codex instead of Claude for --generate-specs
+  -h, --help         Display help
 ```
+
+## Adoption Mode
+
+Adoption mode layers Ralph Loop files into an existing project without replacing application code or `package.json`. It detects the package manager from lockfiles, detects common frameworks from dependencies, and adapts `init.sh`, `scripts/dev-up.sh`, and `scripts/dev-down.sh` to the detected dev command and port.
+
+When a Ralph-owned file already exists, interactive adoption prompts you to skip or overwrite it. For `CLAUDE.md` and `AGENTS.md`, it can also append a delimited Ralph section. `.mcp.json` is merged by adding the Playwright server while preserving existing MCP servers. `.gitignore` is appended with Ralph runtime files such as `.dev-server.pid` and `.dev-server.log`.
+
+`--generate-specs` does not add an SDK dependency or ask for API keys. It invokes the installed agent CLI: Claude by default, or Codex when `--codex` is provided.
 
 ## Requirements
 
