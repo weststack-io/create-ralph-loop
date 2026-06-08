@@ -19,6 +19,7 @@ interface TemplateVars {
   projectSlug: string;
   projectDescription: string;
   createdAt: string;
+  devPort: string;
 }
 
 interface ProjectDetection {
@@ -57,6 +58,14 @@ function toTitleCase(str: string): string {
     .replace(/\b\w/g, (c: string) => c.toUpperCase());
 }
 
+function deriveProjectPort(seed: string): string {
+  let hash = 0;
+  for (const char of seed) {
+    hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  }
+  return String(3000 + (hash % 1000));
+}
+
 function replaceTemplateVars(content: string, vars: TemplateVars): string {
   return content.replace(/\{\{(\w+)\}\}/g, (_, key) => {
     return (vars as unknown as Record<string, string>)[key] ?? `{{${key}}}`;
@@ -80,7 +89,7 @@ async function renderTemplateEntry(
   entry: string,
   vars: TemplateVars
 ): Promise<Buffer | string> {
-  const isTemplate = entry.endsWith(".hbs") || path.basename(entry) === "init.sh";
+  const isTemplate = entry.endsWith(".hbs") || path.extname(entry) === ".sh";
   if (!isTemplate) {
     return fs.readFile(entry);
   }
@@ -140,6 +149,21 @@ async function readPackageJson(targetDir: string): Promise<Record<string, any> |
   }
 }
 
+async function readEnvPort(targetDir: string): Promise<string | undefined> {
+  for (const fileName of [".env.local", ".env"]) {
+    const envPath = path.join(targetDir, fileName);
+    if (!(await fs.pathExists(envPath))) {
+      continue;
+    }
+    const content = await fs.readFile(envPath, "utf-8");
+    const match = content.match(/^(?:DEV_PORT|PORT)=(\d+)\s*$/m);
+    if (match) {
+      return match[1];
+    }
+  }
+  return undefined;
+}
+
 async function detectProject(targetDir: string): Promise<ProjectDetection> {
   const pkg = await readPackageJson(targetDir);
   const deps = {
@@ -156,20 +180,18 @@ async function detectProject(targetDir: string): Promise<ProjectDetection> {
   }
 
   let framework = "generic Node";
-  let defaultPort = "3000";
   if (deps.next) {
     framework = "Next.js";
-    defaultPort = "3000";
   } else if (deps.vite || deps["@vitejs/plugin-react"]) {
     framework = "Vite";
-    defaultPort = "5173";
   } else if (deps["@remix-run/dev"] || deps["@remix-run/react"]) {
     framework = "Remix";
-    defaultPort = "3000";
   } else if (deps.astro) {
     framework = "Astro";
-    defaultPort = "4321";
   }
+
+  const projectSeed = pkg?.name ?? path.basename(targetDir);
+  const envPort = await readEnvPort(targetDir);
 
   return {
     packageManager,
@@ -182,7 +204,7 @@ async function detectProject(targetDir: string): Promise<ProjectDetection> {
           : "yarn install",
     devCommand: scriptCommand(packageManager, scripts.dev ? "dev" : scripts.start ? "start" : "dev"),
     testCommand: scripts.test ? scriptCommand(packageManager, "test") : "",
-    port: process.env.PORT || defaultPort,
+    port: envPort ?? deriveProjectPort(projectSeed),
     packageName: pkg?.name,
     packageDescription: pkg?.description,
   };
@@ -249,6 +271,7 @@ async function buildVars(
     projectSlug: toKebabCase(projectName),
     projectDescription,
     createdAt: new Date().toISOString().split("T")[0],
+    devPort: detection?.port ?? deriveProjectPort(projectName || dirName),
   };
 }
 
@@ -297,6 +320,7 @@ async function adopt(
   }
 
   await appendGitignoreEntries(path.join(targetDir, ".gitignore"));
+  await ensureDevPortEnv(path.join(targetDir, ".env.local"), detection.port);
   await chmodShellScripts(targetDir);
 }
 
@@ -405,6 +429,19 @@ async function appendGitignoreEntries(gitignorePath: string): Promise<void> {
   console.log("Updated .gitignore with Ralph Loop runtime files");
 }
 
+async function ensureDevPortEnv(envPath: string, port: string): Promise<void> {
+  let existing = "";
+  if (await fs.pathExists(envPath)) {
+    existing = await fs.readFile(envPath, "utf-8");
+  }
+  if (/^(?:DEV_PORT|PORT)=\d+\s*$/m.test(existing)) {
+    return;
+  }
+  const line = `DEV_PORT=${port}`;
+  await fs.writeFile(envPath, `${existing.trimEnd()}\n${line}\n`, "utf-8");
+  console.log(`Updated .env.local with ${line}`);
+}
+
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`;
 }
@@ -464,9 +501,11 @@ echo "  Setup Summary"
 echo "========================================"
 echo "  Framework:   ${detection.framework}"
 echo "  Package mgr: ${detection.packageManager}"
+echo "  Dev port:    ${detection.port}"
 echo "  Dev command: ${detection.devCommand}"
 ${testLine}
 echo "  Dev server:  ./scripts/dev-up.sh"
+echo "  Cleanup:     ./scripts/dev-cleanup.sh"
 echo "========================================"
 `;
 }
@@ -474,7 +513,7 @@ echo "========================================"
 function renderAdoptDevUp(detection: ProjectDetection): string {
   return `#!/usr/bin/env bash
 # Start the detected dev server in the background.
-# Idempotent: kills any stale instance first, waits until the new one is ready.
+# Idempotent: stops this project's stale server first, then waits until ready.
 
 set -euo pipefail
 
@@ -483,9 +522,25 @@ cd "$ROOT_DIR"
 
 PID_FILE=".dev-server.pid"
 LOG_FILE=".dev-server.log"
-PORT="\${PORT:-${detection.port}}"
+REGISTRY_DIR="\${RALPH_HOME:-$HOME/.ralph}"
+REGISTRY_FILE="$REGISTRY_DIR/servers.json"
 READY_TIMEOUT="\${READY_TIMEOUT:-180}"
 DEV_COMMAND=${shellQuote(detection.devCommand)}
+
+load_env_file() {
+  local file="$1"
+  if [ ! -f "$file" ]; then return 0; fi
+  set -a
+  # shellcheck disable=SC1090
+  source "$file"
+  set +a
+}
+
+load_env_file ".env"
+load_env_file ".env.local"
+
+DEV_PORT="\${DEV_PORT:-\${PORT:-${detection.port}}}"
+PORT="$DEV_PORT"
 
 kill_pid() {
   local pid="$1"
@@ -499,11 +554,56 @@ kill_pid() {
   kill -9 "$pid" 2>/dev/null || true
 }
 
-if [ -f "$PID_FILE" ]; then
-  OLD_PID="$(cat "$PID_FILE" 2>/dev/null || true)"
-  kill_pid "$OLD_PID"
-  rm -f "$PID_FILE"
-fi
+registry_update() {
+  local action="$1"
+  local pid="\${2:-}"
+  mkdir -p "$REGISTRY_DIR"
+  node - "$REGISTRY_FILE" "$action" "$ROOT_DIR" "$PORT" "$pid" <<'NODE'
+const fs = require("fs");
+const [registryFile, action, project, port, pid] = process.argv.slice(2);
+let registry = [];
+try {
+  registry = JSON.parse(fs.readFileSync(registryFile, "utf8"));
+  if (!Array.isArray(registry)) registry = [];
+} catch {
+  registry = [];
+}
+registry = registry.filter((entry) => entry && entry.project !== project);
+registry = registry.filter((entry) => {
+  if (!entry.pid) return false;
+  try {
+    process.kill(Number(entry.pid), 0);
+    return true;
+  } catch {
+    return false;
+  }
+});
+if (action === "register") {
+  registry.push({
+    project,
+    port: Number(port),
+    pid: Number(pid),
+    started: new Date().toISOString(),
+  });
+}
+fs.writeFileSync(registryFile, JSON.stringify(registry, null, 2) + "\\n");
+NODE
+}
+
+registry_pid_for_port() {
+  node - "$REGISTRY_FILE" "$ROOT_DIR" "$PORT" <<'NODE'
+const fs = require("fs");
+const [registryFile, project, port] = process.argv.slice(2);
+let registry = [];
+try {
+  registry = JSON.parse(fs.readFileSync(registryFile, "utf8"));
+} catch {}
+const entry = Array.isArray(registry)
+  ? registry.find((item) => String(item.port) === String(port) && item.project !== project)
+  : undefined;
+if (entry && entry.pid) process.stdout.write(String(entry.pid));
+NODE
+}
 
 port_in_use() {
   if command -v fuser >/dev/null 2>&1 && fuser -s "\${PORT}/tcp" 2>/dev/null; then
@@ -515,35 +615,37 @@ port_in_use() {
   return 1
 }
 
-clear_port() {
-  local sig="$1"
-  if command -v lsof >/dev/null 2>&1; then
-    local pids
-    pids="$(lsof -ti:"$PORT" 2>/dev/null || true)"
-    if [ -n "$pids" ]; then
-      # shellcheck disable=SC2086
-      kill "$sig" $pids 2>/dev/null || true
-    fi
-  fi
-  if command -v fuser >/dev/null 2>&1; then
-    fuser -k "$sig" "\${PORT}/tcp" 2>/dev/null || true
+clear_own_port_processes() {
+  local registry_pid
+  registry_pid="$(registry_pid_for_port || true)"
+  if [ -n "$registry_pid" ] && kill -0 "$registry_pid" 2>/dev/null; then
+    echo "ERROR: port $PORT is registered to another Ralph project (pid $registry_pid)." >&2
+    echo "Run that project's ./scripts/dev-down.sh or choose another DEV_PORT in .env.local." >&2
+    exit 1
   fi
 }
 
+if [ -f "$PID_FILE" ]; then
+  OLD_PID="$(cat "$PID_FILE" 2>/dev/null || true)"
+  kill_pid "$OLD_PID"
+  rm -f "$PID_FILE"
+fi
+registry_update unregister
+
 if port_in_use; then
-  echo "Clearing stray process(es) on port $PORT"
-  clear_port -TERM
-  sleep 1
-  port_in_use && clear_port -KILL
-  sleep 0.5
+  clear_own_port_processes
+  echo "ERROR: port $PORT is already in use by an unregistered process." >&2
+  echo "Stop that process or set DEV_PORT to another value in .env.local." >&2
+  exit 1
 fi
 
 : > "$LOG_FILE"
-bash -lc "$DEV_COMMAND" >> "$LOG_FILE" 2>&1 &
+PORT="$PORT" DEV_PORT="$DEV_PORT" bash -lc "$DEV_COMMAND" >> "$LOG_FILE" 2>&1 &
 NEW_PID=$!
 disown "$NEW_PID" 2>/dev/null || true
 echo "$NEW_PID" > "$PID_FILE"
-echo "Started dev server (pid $NEW_PID), logging to $LOG_FILE"
+registry_update register "$NEW_PID"
+echo "Started dev server (pid $NEW_PID) on port $PORT, logging to $LOG_FILE"
 
 DEADLINE=$(( $(date +%s) + READY_TIMEOUT ))
 while :; do
@@ -551,6 +653,7 @@ while :; do
     echo "ERROR: dev server process exited before becoming ready." >&2
     tail -n 40 "$LOG_FILE" >&2 || true
     rm -f "$PID_FILE"
+    registry_update unregister
     exit 1
   fi
   if grep -qE '(Ready in|started server on|Local:[[:space:]]+http|localhost:|http://)' "$LOG_FILE" 2>/dev/null; then
@@ -582,7 +685,23 @@ ROOT_DIR="$(cd "$(dirname "\${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 PID_FILE=".dev-server.pid"
-PORT="\${PORT:-${detection.port}}"
+REGISTRY_DIR="\${RALPH_HOME:-$HOME/.ralph}"
+REGISTRY_FILE="$REGISTRY_DIR/servers.json"
+
+load_env_file() {
+  local file="$1"
+  if [ ! -f "$file" ]; then return 0; fi
+  set -a
+  # shellcheck disable=SC1090
+  source "$file"
+  set +a
+}
+
+load_env_file ".env"
+load_env_file ".env.local"
+
+DEV_PORT="\${DEV_PORT:-\${PORT:-${detection.port}}}"
+PORT="$DEV_PORT"
 
 kill_pid() {
   local pid="$1"
@@ -596,6 +715,32 @@ kill_pid() {
   kill -9 "$pid" 2>/dev/null || true
 }
 
+registry_update() {
+  mkdir -p "$REGISTRY_DIR"
+  node - "$REGISTRY_FILE" "$ROOT_DIR" <<'NODE'
+const fs = require("fs");
+const [registryFile, project] = process.argv.slice(2);
+let registry = [];
+try {
+  registry = JSON.parse(fs.readFileSync(registryFile, "utf8"));
+  if (!Array.isArray(registry)) registry = [];
+} catch {
+  registry = [];
+}
+registry = registry.filter((entry) => entry && entry.project !== project);
+registry = registry.filter((entry) => {
+  if (!entry.pid) return false;
+  try {
+    process.kill(Number(entry.pid), 0);
+    return true;
+  } catch {
+    return false;
+  }
+});
+fs.writeFileSync(registryFile, JSON.stringify(registry, null, 2) + "\\n");
+NODE
+}
+
 if [ -f "$PID_FILE" ]; then
   PID="$(cat "$PID_FILE" 2>/dev/null || true)"
   if [ -n "$PID" ]; then
@@ -605,37 +750,7 @@ if [ -f "$PID_FILE" ]; then
   rm -f "$PID_FILE"
 fi
 
-port_in_use() {
-  if command -v fuser >/dev/null 2>&1 && fuser -s "\${PORT}/tcp" 2>/dev/null; then
-    return 0
-  fi
-  if command -v lsof >/dev/null 2>&1 && [ -n "$(lsof -ti:"$PORT" 2>/dev/null || true)" ]; then
-    return 0
-  fi
-  return 1
-}
-
-clear_port() {
-  local sig="$1"
-  if command -v lsof >/dev/null 2>&1; then
-    local pids
-    pids="$(lsof -ti:"$PORT" 2>/dev/null || true)"
-    if [ -n "$pids" ]; then
-      # shellcheck disable=SC2086
-      kill "$sig" $pids 2>/dev/null || true
-    fi
-  fi
-  if command -v fuser >/dev/null 2>&1; then
-    fuser -k "$sig" "\${PORT}/tcp" 2>/dev/null || true
-  fi
-}
-
-if port_in_use; then
-  echo "Clearing stray process(es) on port $PORT"
-  clear_port -TERM
-  sleep 1
-  port_in_use && clear_port -KILL
-fi
+registry_update
 `;
 }
 

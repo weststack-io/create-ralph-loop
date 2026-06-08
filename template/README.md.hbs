@@ -56,7 +56,8 @@ Ralph runs an automated loop of AI coding sessions. Each iteration:
 ├── init.sh               # Environment setup (idempotent, run at start of each session)
 ├── scripts/
 │   ├── dev-up.sh         # Start dev server in background
-│   └── dev-down.sh       # Stop dev server
+│   ├── dev-down.sh       # Stop dev server
+│   └── dev-cleanup.sh    # Clean stale global Ralph server registry entries
 ├── specs/phase1/
 │   ├── PRD.md            # Product requirements document
 │   ├── app_spec.txt      # Technical specification
@@ -78,6 +79,22 @@ Copy `.env.example` to `.env.local` and fill in your values:
 
 ```bash
 cp .env.example .env.local
+```
+
+`DEV_PORT` controls the local dev server port. The scaffold assigns a deterministic port for this project so multiple Ralph projects can run on the same machine without all defaulting to `3000`.
+
+### Dev Server Registry
+
+`scripts/dev-up.sh` registers the active dev server in `~/.ralph/servers.json`, and `scripts/dev-down.sh` removes this project's registry entry. To remove stale registry entries:
+
+```bash
+./scripts/dev-cleanup.sh
+```
+
+To stop all live registered Ralph dev servers:
+
+```bash
+./scripts/dev-cleanup.sh --kill-live
 ```
 
 ### MCP (Model Context Protocol)

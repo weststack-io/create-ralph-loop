@@ -28,7 +28,12 @@ Take note of: which features pass, which don't, what the last session accomplish
 The dev server should already be running (started by the loop driver). Verify it:
 
 ```bash
-curl -sS --connect-timeout 5 -o /dev/null -w "%{http_code}" http://localhost:3000/
+set -a
+[ -f .env ] && . ./.env
+[ -f .env.local ] && . ./.env.local
+set +a
+DEV_PORT="${DEV_PORT:-${PORT:-{{devPort}}}}"
+curl -sS --connect-timeout 5 -o /dev/null -w "%{http_code}" "http://localhost:${DEV_PORT}/"
 ```
 
 If you get a 200, proceed. If the server is not responding:

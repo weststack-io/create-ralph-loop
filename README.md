@@ -71,7 +71,8 @@ my-project/
 ├── init.sh               # Environment setup (idempotent)
 ├── scripts/
 │   ├── dev-up.sh         # Start dev server in background
-│   └── dev-down.sh       # Stop dev server
+│   ├── dev-down.sh       # Stop dev server
+│   └── dev-cleanup.sh    # Clean stale global Ralph server registry entries
 ├── specs/phase1/
 │   ├── PRD.md            # Product requirements (generated from your idea)
 │   ├── app_spec.txt      # Technical specification (generated from PRD)
@@ -84,7 +85,7 @@ my-project/
 ├── CLAUDE.md             # Claude Code project instructions
 ├── AGENTS.md             # Agent behavior rules
 ├── .mcp.json             # Playwright MCP for browser testing
-├── .env.example          # Environment variable template
+├── .env.example          # Environment variable template, including DEV_PORT
 └── .gitignore
 ```
 
@@ -95,7 +96,7 @@ ralph.sh [--claude|--codex] <iterations>
     │
     ├─→ dev-down.sh          (kill any stale server)
     ├─→ init.sh              (npm install, prisma, .env)
-    ├─→ dev-up.sh            (start dev server, wait for ready)
+    ├─→ dev-up.sh            (start dev server on DEV_PORT, wait for ready)
     │
     └─→ FOR i=1 TO N:
        │
@@ -189,6 +190,14 @@ Adoption mode layers Ralph Loop files into an existing project without replacing
 When a Ralph-owned file already exists, interactive adoption prompts you to skip or overwrite it. For `CLAUDE.md` and `AGENTS.md`, it can also append a delimited Ralph section. `.mcp.json` is merged by adding the Playwright server while preserving existing MCP servers. `.gitignore` is appended with Ralph runtime files such as `.dev-server.pid` and `.dev-server.log`.
 
 `--generate-specs` does not add an SDK dependency or ask for API keys. It invokes the installed agent CLI: Claude by default, or Codex when `--codex` is provided.
+
+## Port Management
+
+Each generated or adopted project gets a `DEV_PORT` entry in `.env.local`. The CLI chooses a deterministic port in the `3000-3999` range from the project name, unless an existing `DEV_PORT` or `PORT` is already present.
+
+`scripts/dev-up.sh` reads `.env` and `.env.local`, starts the dev server with `PORT` and `DEV_PORT` exported, and registers the process in `~/.ralph/servers.json`. `scripts/dev-down.sh` removes this project's registry entry when stopping the local PID. `scripts/dev-cleanup.sh` removes stale registry entries; pass `--kill-live` to stop all live registered Ralph dev servers.
+
+If another registered Ralph project is already using the selected port, `dev-up.sh` exits with a clear message instead of killing the other project. If an unregistered process is using the port, choose another `DEV_PORT` or stop that process manually.
 
 ## Requirements
 

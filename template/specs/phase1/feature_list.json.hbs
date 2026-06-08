@@ -12,7 +12,7 @@
       "steps": [
         "Verify package.json exists with all required dependencies",
         "Run 'npx tsc --noEmit' and confirm zero errors",
-        "Navigate to http://localhost:3000 and verify the page loads"
+        "Navigate to http://localhost:{{devPort}} and verify the page loads"
       ],
       "passes": false
     },
@@ -34,7 +34,7 @@
       "category": "ui",
       "description": "Application shell with navigation layout and placeholder pages",
       "steps": [
-        "Navigate to http://localhost:3000 and verify main layout renders",
+        "Navigate to http://localhost:{{devPort}} and verify main layout renders",
         "Verify navigation links are present and functional",
         "Verify all placeholder pages load without errors"
       ],

@@ -83,6 +83,10 @@ if [ -f ".env.example" ] && [ ! -f ".env.local" ]; then
   echo ""
 elif [ -f ".env.local" ]; then
   echo ".env.local already exists -- skipping copy."
+  if ! grep -qE '^(DEV_PORT|PORT)=' .env.local; then
+    echo "DEV_PORT={{devPort}}" >> .env.local
+    echo "Added DEV_PORT={{devPort}} to .env.local."
+  fi
   echo ""
 fi
 
@@ -121,12 +125,16 @@ fi
 
 if [ -f ".env.local" ]; then
   echo "  Environment: .env.local exists"
+  DEV_PORT_VALUE="$(grep -E '^(DEV_PORT|PORT)=' .env.local | tail -n 1 | cut -d= -f2- || true)"
+  echo "  Dev port:    ${DEV_PORT_VALUE:-{{devPort}}}"
 else
   echo "  Environment: NO .env.local (create from .env.example)"
+  echo "  Dev port:    {{devPort}}"
 fi
 
 echo ""
 echo "  To start dev server:  ./scripts/dev-up.sh"
+echo "  To clean stale dev servers: ./scripts/dev-cleanup.sh"
 echo "  To run tests:         npm test"
 echo "  To check types:       npx tsc --noEmit"
 echo ""

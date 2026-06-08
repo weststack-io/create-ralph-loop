@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# tether -- Start the Next.js dev server in the background.
-# Idempotent: kills any stale instance first, waits until the new one is ready.
+# Start the dev server in the background.
+# Idempotent: stops this project's stale server first, then waits until ready.
 
 set -euo pipefail
 
@@ -9,8 +9,25 @@ cd "$ROOT_DIR"
 
 PID_FILE=".dev-server.pid"
 LOG_FILE=".dev-server.log"
-PORT="${PORT:-3000}"
+REGISTRY_DIR="${RALPH_HOME:-$HOME/.ralph}"
+REGISTRY_FILE="$REGISTRY_DIR/servers.json"
 READY_TIMEOUT="${READY_TIMEOUT:-180}"
+
+load_env_file() {
+  local file="$1"
+  if [ ! -f "$file" ]; then return 0; fi
+  set -a
+  # shellcheck disable=SC1090
+  source "$file"
+  set +a
+}
+
+load_env_file ".env"
+load_env_file ".env.local"
+
+DEV_PORT="${DEV_PORT:-${PORT:-{{devPort}}}}"
+PORT="$DEV_PORT"
+DEV_COMMAND="${DEV_COMMAND:-npm run dev}"
 
 kill_pid() {
   local pid="$1"
@@ -24,16 +41,57 @@ kill_pid() {
   kill -9 "$pid" 2>/dev/null || true
 }
 
-# 1. Stop whatever is recorded in the PID file.
-if [ -f "$PID_FILE" ]; then
-  OLD_PID="$(cat "$PID_FILE" 2>/dev/null || true)"
-  kill_pid "$OLD_PID"
-  rm -f "$PID_FILE"
-fi
+registry_update() {
+  local action="$1"
+  local pid="${2:-}"
+  mkdir -p "$REGISTRY_DIR"
+  node - "$REGISTRY_FILE" "$action" "$ROOT_DIR" "$PORT" "$pid" <<'NODE'
+const fs = require("fs");
+const [registryFile, action, project, port, pid] = process.argv.slice(2);
+let registry = [];
+try {
+  registry = JSON.parse(fs.readFileSync(registryFile, "utf8"));
+  if (!Array.isArray(registry)) registry = [];
+} catch {
+  registry = [];
+}
+registry = registry.filter((entry) => entry && entry.project !== project);
+registry = registry.filter((entry) => {
+  if (!entry.pid) return false;
+  try {
+    process.kill(Number(entry.pid), 0);
+    return true;
+  } catch {
+    return false;
+  }
+});
+if (action === "register") {
+  registry.push({
+    project,
+    port: Number(port),
+    pid: Number(pid),
+    started: new Date().toISOString(),
+  });
+}
+fs.writeFileSync(registryFile, JSON.stringify(registry, null, 2) + "\n");
+NODE
+}
 
-# 2. Fallback: clear anything still bound to the port (PID file drift,
-#    orphaned child processes from prior crashes, Next.js child workers, etc).
-#    WSL2's lsof can miss listeners that fuser sees, so run both when available.
+registry_pid_for_port() {
+  node - "$REGISTRY_FILE" "$ROOT_DIR" "$PORT" <<'NODE'
+const fs = require("fs");
+const [registryFile, project, port] = process.argv.slice(2);
+let registry = [];
+try {
+  registry = JSON.parse(fs.readFileSync(registryFile, "utf8"));
+} catch {}
+const entry = Array.isArray(registry)
+  ? registry.find((item) => String(item.port) === String(port) && item.project !== project)
+  : undefined;
+if (entry && entry.pid) process.stdout.write(String(entry.pid));
+NODE
+}
+
 port_in_use() {
   if command -v fuser >/dev/null 2>&1 && fuser -s "${PORT}/tcp" 2>/dev/null; then
     return 0
@@ -44,52 +102,50 @@ port_in_use() {
   return 1
 }
 
-clear_port() {
-  local sig="$1"
-  if command -v lsof >/dev/null 2>&1; then
-    local pids
-    pids="$(lsof -ti:"$PORT" 2>/dev/null || true)"
-    if [ -n "$pids" ]; then
-      # shellcheck disable=SC2086
-      kill "$sig" $pids 2>/dev/null || true
-    fi
-  fi
-  if command -v fuser >/dev/null 2>&1; then
-    fuser -k "$sig" "${PORT}/tcp" 2>/dev/null || true
+clear_own_port_processes() {
+  local registry_pid
+  registry_pid="$(registry_pid_for_port || true)"
+  if [ -n "$registry_pid" ] && kill -0 "$registry_pid" 2>/dev/null; then
+    echo "ERROR: port $PORT is registered to another Ralph project (pid $registry_pid)." >&2
+    echo "Run that project's ./scripts/dev-down.sh or choose another DEV_PORT in .env.local." >&2
+    exit 1
   fi
 }
 
+# Stop this project's previous server, if any.
+if [ -f "$PID_FILE" ]; then
+  OLD_PID="$(cat "$PID_FILE" 2>/dev/null || true)"
+  kill_pid "$OLD_PID"
+  rm -f "$PID_FILE"
+fi
+registry_update unregister
+
 if port_in_use; then
-  echo "Clearing stray process(es) on port $PORT"
-  clear_port -TERM
-  sleep 1
-  port_in_use && clear_port -KILL
-  sleep 0.5
+  clear_own_port_processes
+  echo "ERROR: port $PORT is already in use by an unregistered process." >&2
+  echo "Stop that process or set DEV_PORT to another value in .env.local." >&2
+  exit 1
 fi
 
-# 3. Start fresh, detached.
 : > "$LOG_FILE"
-nohup npm run dev >> "$LOG_FILE" 2>&1 &
+PORT="$PORT" DEV_PORT="$DEV_PORT" bash -lc "$DEV_COMMAND" >> "$LOG_FILE" 2>&1 &
 NEW_PID=$!
 disown "$NEW_PID" 2>/dev/null || true
 echo "$NEW_PID" > "$PID_FILE"
-echo "Started dev server (pid $NEW_PID), logging to $LOG_FILE"
+registry_update register "$NEW_PID"
+echo "Started dev server (pid $NEW_PID) on port $PORT, logging to $LOG_FILE"
 
-# 4. Wait until Next.js logs its readiness line, then confirm the port answers.
-#    Next 16 + Turbopack compiles routes lazily on first request, so a curl-only
-#    probe can hang well past server-ready while the initial route compiles.
 DEADLINE=$(( $(date +%s) + READY_TIMEOUT ))
-ready_logged=0
 while :; do
   if ! kill -0 "$NEW_PID" 2>/dev/null; then
     echo "ERROR: dev server process exited before becoming ready." >&2
     echo "---- last 40 log lines ----" >&2
     tail -n 40 "$LOG_FILE" >&2 || true
     rm -f "$PID_FILE"
+    registry_update unregister
     exit 1
   fi
-  if [ "$ready_logged" -eq 0 ] && grep -qE '(Ready in|started server on|Local:[[:space:]]+http)' "$LOG_FILE" 2>/dev/null; then
-    ready_logged=1
+  if grep -qE '(Ready in|started server on|Local:[[:space:]]+http|localhost:|http://)' "$LOG_FILE" 2>/dev/null; then
     echo "Dev server ready on http://localhost:${PORT}/ (per log)"
     exit 0
   fi
