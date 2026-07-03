@@ -1,6 +1,18 @@
 import fs from "node:fs";
-import spawn from "cross-spawn";
+import { spawn as nodeSpawn } from "node:child_process";
+import crossSpawn from "cross-spawn";
 import treeKill from "tree-kill";
+
+// Spawner selection matters on Windows:
+//  - argv spawns (no shell) use cross-spawn, which resolves `.cmd`/`.ps1` shims
+//    (npm-installed CLIs like claude/codex/npm) and quotes args correctly.
+//  - shell spawns use Node's native spawn: cross-spawn's shell:true path has a
+//    known Windows bug where an exit code of 1 is misreported as ENOENT
+//    (isWin && status === 1 && !parsed.file), which would break gate commands
+//    such as `npm test` that legitimately exit 1.
+function pickSpawn(shell: boolean) {
+  return shell ? nodeSpawn : crossSpawn;
+}
 
 /**
  * Cross-platform process runner built on cross-spawn (which resolves `.cmd`
@@ -66,7 +78,7 @@ function spawnInternal(
   const maxBuffer = opts.maxBuffer ?? DEFAULT_MAX_BUFFER;
 
   return new Promise<RunResult>((resolve, reject) => {
-    const child = spawn(command, args, {
+    const child = pickSpawn(shell)(command, args, {
       cwd: opts.cwd,
       env: opts.env ?? process.env,
       shell,
@@ -186,7 +198,7 @@ export interface DetachedOptions {
  */
 export function spawnDetached(commandLine: string, opts: DetachedOptions): number {
   const out = fs.openSync(opts.logFile, "a");
-  const child = spawn(commandLine, [], {
+  const child = nodeSpawn(commandLine, [], {
     cwd: opts.cwd,
     env: opts.env ?? process.env,
     shell: true,
