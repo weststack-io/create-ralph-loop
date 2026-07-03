@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import spawn from "cross-spawn";
 import treeKill from "tree-kill";
 
@@ -169,4 +170,32 @@ export function killTree(pid: number, signal: string = "SIGTERM"): Promise<void>
   return new Promise((resolve) => {
     treeKill(pid, signal, () => resolve());
   });
+}
+
+export interface DetachedOptions {
+  cwd: string;
+  env?: NodeJS.ProcessEnv;
+  /** File path to which stdout+stderr are appended. */
+  logFile: string;
+}
+
+/**
+ * Spawn a long-running background process (e.g. a dev server) through the shell,
+ * detached, with output redirected to a log file. Returns the child pid. Use
+ * killTree(pid) to stop it. Unlike run(), this does not wait for exit.
+ */
+export function spawnDetached(commandLine: string, opts: DetachedOptions): number {
+  const out = fs.openSync(opts.logFile, "a");
+  const child = spawn(commandLine, [], {
+    cwd: opts.cwd,
+    env: opts.env ?? process.env,
+    shell: true,
+    windowsHide: true,
+    // New process group on POSIX so we can signal the whole tree; on Windows
+    // tree-kill walks the child tree via wmic/taskkill instead.
+    detached: process.platform !== "win32",
+    stdio: ["ignore", out, out],
+  });
+  child.unref();
+  return child.pid ?? -1;
 }
