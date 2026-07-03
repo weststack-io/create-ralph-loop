@@ -88,6 +88,11 @@ const ReplanSchema = z
   .object({ everyIterations: z.number().int().positive().optional() })
   .default({});
 
+/** Periodic "gardening" agent (entropy/slop cleanup). Disabled unless set. */
+const GardenSchema = z
+  .object({ everyIterations: z.number().int().positive().optional() })
+  .default({});
+
 const StallSchema = z
   .object({ noProgressIterations: z.number().int().positive().default(4) })
   .default({ noProgressIterations: 4 });
@@ -109,6 +114,8 @@ const DevServerSchema = z
     readinessPath: z.string().default("/"),
     readyTimeoutMs: z.number().int().positive().default(120_000),
     env: z.record(z.string()).default({}),
+    /** Reserved for parallel tracks: per-track ports allocated from this range. */
+    portRange: z.tuple([z.number().int().positive(), z.number().int().positive()]).optional(),
   })
   .default({
     enabled: true,
@@ -139,6 +146,7 @@ export const RalphConfigSchema = z.object({
   retries: RetriesSchema,
   budgets: BudgetsSchema,
   replan: ReplanSchema,
+  garden: GardenSchema,
   stall: StallSchema,
   verify: VerifySchema,
   devServer: DevServerSchema,

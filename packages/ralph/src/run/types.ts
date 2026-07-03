@@ -27,6 +27,8 @@ export interface RunContext {
 
   coder: { adapter: RunnerAdapter; role: ResolvedRole };
   verifier: { adapter: RunnerAdapter; role: ResolvedRole };
+  replanner: { adapter: RunnerAdapter; role: ResolvedRole };
+  gardener: { adapter: RunnerAdapter; role: ResolvedRole };
 
   /** Stream agent output to the console. */
   stream: boolean;

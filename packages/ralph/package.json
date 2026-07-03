@@ -13,7 +13,8 @@
     "schema/"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && tsx scripts/gen-schema.ts",
+    "gen-schema": "tsx scripts/gen-schema.ts",
     "typecheck": "tsc --noEmit",
     "prepare": "npm run build"
   },
@@ -42,7 +43,8 @@
     "node-notifier": "^10.0.1"
   },
   "devDependencies": {
-    "@types/cross-spawn": "^6.0.6"
+    "@types/cross-spawn": "^6.0.6",
+    "zod-to-json-schema": "^3.23.5"
   },
   "engines": {
     "node": ">=18"

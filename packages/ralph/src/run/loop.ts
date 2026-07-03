@@ -1,11 +1,15 @@
 import { captureBaseline } from "../gates";
 import { commitAll, rollbackTo } from "../util/git";
+import { run as runProc } from "../util/proc";
 import { checkBudget, checkStall } from "../budget/tracker";
 import { nowIso } from "../events/types";
 import { log, color } from "../util/logger";
 import { runIteration } from "./iteration";
+import { runReplan } from "../replan/replanner";
+import { runGarden } from "../garden/gardener";
 import type { RunContext, IterationFailure } from "./types";
 import type { FeatureStatus } from "../features/schema";
+import type { BaselineSnapshot } from "../gates/types";
 
 export interface RunOptions {
   /** CLI override for the iteration cap (falls back to config.budgets.maxIterations). */
@@ -141,6 +145,17 @@ export async function runLoop(ctx: RunContext, opts: RunOptions = {}): Promise<R
       }
     }
 
+    // Periodic self-improvement: strong-model replan of the feature DAG.
+    if (config.replan.everyIterations && state.iteration % config.replan.everyIterations === 0) {
+      await maybeReplan(ctx);
+    }
+
+    // Periodic entropy cleanup (gardening); refresh baseline if it committed.
+    if (config.garden.everyIterations && state.iteration % config.garden.everyIterations === 0) {
+      const garden = await maybeGarden(ctx, baseline);
+      if (garden) baseline = await captureBaseline(config, cwd);
+    }
+
     const stall = checkStall(state, config);
     if (stall.event) eventLog.append(stall.event);
     if (stall.stalled) {
@@ -211,4 +226,77 @@ async function commitFeatures(cwd: string, message: string): Promise<void> {
   } catch {
     /* nothing staged / already clean */
   }
+}
+
+async function maybeReplan(ctx: RunContext): Promise<void> {
+  const { cwd, config, store, eventLog, stateStore, state, notifier } = ctx;
+  if (!(await ctx.replanner.adapter.isAvailable())) {
+    log.dim("  replan skipped (replanner adapter unavailable)");
+    return;
+  }
+  try {
+    const gitLog = await buildGitLog(cwd);
+    const recentEvents = buildRecentEvents(ctx);
+    log.step(`Replanning (${ctx.replanner.role.adapter}/${ctx.replanner.role.model ?? "default"})…`);
+    const rp = await runReplan({
+      adapter: ctx.replanner.adapter,
+      role: ctx.replanner.role,
+      cwd,
+      specDir: config.specDir,
+      store,
+      gitLog,
+      recentEvents,
+      timeoutMs: ctx.agentTimeoutMs,
+      onOutput: ctx.stream ? (c) => log.raw(c) : undefined,
+    });
+    stateStore.addUsage(state, "replanner", rp.usage, rp.durationMs);
+    eventLog.append({ type: "replan", ts: nowIso(), iteration: state.iteration, operations: rp.applied, summary: rp.summary });
+    if (rp.applied.length) {
+      await commitFeatures(cwd, `ralph(replan): ${rp.applied.length} change(s)`);
+      syncCounts(ctx);
+      stateStore.save(state);
+      log.success(`  replan applied: ${rp.applied.join(", ")}`);
+      await notifier.notify("replan", `replan applied ${rp.applied.length} change(s): ${rp.summary ?? ""}`);
+    } else {
+      log.dim(`  replan: no changes${rp.summary ? " — " + rp.summary : ""}`);
+    }
+  } catch (e) {
+    log.warn(`  replan failed: ${(e as Error).message}`);
+  }
+}
+
+async function maybeGarden(ctx: RunContext, baseline: BaselineSnapshot): Promise<boolean> {
+  if (!(await ctx.gardener.adapter.isAvailable())) {
+    log.dim("  gardening skipped (gardener adapter unavailable)");
+    return false;
+  }
+  try {
+    const res = await runGarden(ctx, baseline);
+    return res.committed;
+  } catch (e) {
+    log.warn(`  gardening failed: ${(e as Error).message}`);
+    return false;
+  }
+}
+
+async function buildGitLog(cwd: string): Promise<string> {
+  try {
+    const r = await runProc("git", ["log", "--oneline", "-30"], { cwd });
+    return r.stdout.trim();
+  } catch {
+    return "";
+  }
+}
+
+function buildRecentEvents(ctx: RunContext): string {
+  const events = ctx.eventLog.read().slice(-20);
+  return events
+    .map((e) => {
+      const ev = e as unknown as Record<string, unknown>;
+      const bits = [ev.type, ev.featureId, ev.gate, ev.verdict, ev.outcome, ev.reason]
+        .filter((x) => x !== undefined && x !== null)
+        .join(" ");
+      return `- ${bits}`;
+    })
+    .join("\n");
 }

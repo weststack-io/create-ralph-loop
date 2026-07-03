@@ -125,6 +125,21 @@ export class FeatureStore {
     this.save();
   }
 
+  /**
+   * Replace the entire feature set (used by the replanner). Validates schema +
+   * DAG before persisting; throws on invalid input so a bad replan is rejected
+   * rather than corrupting the contract.
+   */
+  replaceAll(file: FeatureFile): void {
+    const parsed = parseFeatureFile(file);
+    const dag = validateDag(parsed);
+    if (!dag.ok) {
+      throw new Error(`replan produced an invalid feature DAG: ${dag.errors.join("; ")}`);
+    }
+    this.cache = parsed;
+    this.save();
+  }
+
   /** Count features by status, plus a total. */
   counts(): Record<FeatureStatus, number> & { total: number } {
     const result = {} as Record<FeatureStatus, number> & { total: number };

@@ -16,6 +16,7 @@ import { NotificationHub } from "./notify";
 import { runLoop } from "./run/loop";
 import type { RunContext } from "./run/types";
 import { commandExists } from "./util/proc";
+import { renderPrompt, type PlanPromptContext } from "./prompts/render";
 import { isRepo } from "./util/git";
 import { featuresPath, configPath, legacyDir, CONFIG_FILENAME } from "./util/paths";
 import { defaultConfig } from "./config/schema";
@@ -73,8 +74,12 @@ async function runCommand(cwd: string, opts: Record<string, unknown>): Promise<v
 
   const coderRole = resolveRole(config, "coder");
   const verifierRole = resolveRole(config, "verifier");
+  const replannerRole = resolveRole(config, "replanner");
+  const gardenerRole = resolveRole(config, "gardener");
   const coderAdapter = getAdapter(coderRole.adapter);
   const verifierAdapter = getAdapter(verifierRole.adapter);
+  const replannerAdapter = getAdapter(replannerRole.adapter);
+  const gardenerAdapter = getAdapter(gardenerRole.adapter);
   if (!(await coderAdapter.isAvailable())) {
     throw new Error(`coder adapter '${coderRole.adapter}' CLI is not installed or not on PATH.`);
   }
@@ -109,6 +114,8 @@ async function runCommand(cwd: string, opts: Record<string, unknown>): Promise<v
     notifier,
     coder: { adapter: coderAdapter, role: coderRole },
     verifier: { adapter: verifierAdapter, role: verifierRole },
+    replanner: { adapter: replannerAdapter, role: replannerRole },
+    gardener: { adapter: gardenerAdapter, role: gardenerRole },
     stream: opts.stream !== false,
     agentTimeoutMs: Number(process.env.RALPH_AGENT_TIMEOUT_MS) || 30 * 60 * 1000,
   };
@@ -288,6 +295,85 @@ program
     if (parked) log.info(color.dim(`  Parked ${parked} legacy bash script(s) under .ralph/legacy/. The 'ralph' CLI replaces them.`));
     ensureRalphGitignored(cwd);
     log.info("Next: review ralph.config.json, then `ralph doctor` and `ralph run`.");
+  });
+
+// --------------------------------------------------------------------------
+// ralph plan  (generate PRD + app_spec + features.json via the planner role)
+// --------------------------------------------------------------------------
+program
+  .command("plan")
+  .description("Generate/refresh specs (PRD, app_spec, features.json) using the planner model.")
+  .option("--idea <text>", "one-line product idea (seeds the PRD)")
+  .option("--prd-only", "only (re)generate the PRD, not app_spec/features")
+  .action(async (opts) => {
+    await withConfig(async (cwd, config) => {
+      const role = resolveRole(config, "planner");
+      const adapter = getAdapter(role.adapter);
+      if (!(await adapter.isAvailable())) {
+        throw new Error(`planner adapter '${role.adapter}' CLI is not installed or not on PATH.`);
+      }
+      const meta = readProjectMeta(cwd);
+      const context: PlanPromptContext = {
+        projectName: meta.name,
+        projectDescription: (opts.idea as string) ?? meta.description ?? "",
+        specDir: config.specDir,
+      };
+      const prdPath = path.join(cwd, config.specDir, "PRD.md");
+      const runPrompt = async (name: "prd" | "init", label: string) => {
+        const prompt = renderPrompt(name, context, { cwd, specDir: config.specDir });
+        log.step(`Planning: ${label} (${role.adapter}/${role.model ?? "default"})…`);
+        const res = await adapter.invoke({
+          prompt, cwd, role: "planner", model: role.model, permissionTier: role.permissionTier,
+          timeoutMs: Number(process.env.RALPH_AGENT_TIMEOUT_MS) || 30 * 60 * 1000,
+          onOutput: (c) => log.raw(c),
+        });
+        if (res.exitCode !== 0 && res.exitCode !== null) log.warn(`  planner exited ${res.exitCode}`);
+      };
+      if (opts.idea || !fs.existsSync(prdPath)) await runPrompt("prd", "PRD");
+      if (!opts.prdOnly) await runPrompt("init", "app_spec + features.json");
+      log.success("Planning complete. Review the specs, then `ralph doctor` and `ralph run`.");
+    });
+  });
+
+// --------------------------------------------------------------------------
+// ralph export  (verification records → eval-friendly JSONL)
+// --------------------------------------------------------------------------
+program
+  .command("export")
+  .description("Export verification results as JSONL (for offline eval / analysis).")
+  .option("--format <fmt>", "output format", "eval-jsonl")
+  .option("--out <file>", "write to a file instead of stdout")
+  .action((opts) => {
+    const cwd = process.cwd();
+    try {
+      const config = loadConfig(cwd);
+      const store = new FeatureStore(featuresPath(cwd, config.specDir));
+      store.load();
+      const lines = store.all().map((f) =>
+        JSON.stringify({
+          feature_id: f.id,
+          description: f.description,
+          steps: f.steps,
+          status: f.status,
+          verdict: f.verification?.verdict ?? null,
+          stepResults: f.verification?.stepResults ?? [],
+          concerns: f.verification?.concerns ?? [],
+          verified_at: f.verification?.at ?? null,
+          verifier: f.verification?.verifier ?? null,
+        }),
+      );
+      const out = lines.join("\n") + (lines.length ? "\n" : "");
+      const outFile = opts.out as string | undefined;
+      if (outFile) {
+        fs.writeFileSync(outFile, out);
+        log.success(`Wrote ${lines.length} record(s) to ${outFile}`);
+      } else {
+        process.stdout.write(out);
+      }
+    } catch (e) {
+      log.error((e as Error).message);
+      process.exitCode = 1;
+    }
   });
 
 program.parseAsync(process.argv);

@@ -55,10 +55,16 @@ function baseConfig(overrides: (c: RalphConfig) => void): RalphConfig {
   return c;
 }
 
+function noopAdapter(): MockAdapter {
+  return new MockAdapter(() => ({ exitCode: 0, rawOutput: "", durationMs: 1, timedOut: false }));
+}
+
 function makeContext(
   config: RalphConfig,
   coder: MockAdapter,
   verifier: MockAdapter,
+  replanner: MockAdapter = noopAdapter(),
+  gardener: MockAdapter = noopAdapter(),
 ): RunContext {
   const store = new FeatureStore(path.join(cwd, "specs", "features.json"));
   store.load();
@@ -79,6 +85,8 @@ function makeContext(
     notifier: new NotificationHub([]),
     coder: { adapter: coder, role: { adapter: "mock", permissionTier: "full" } },
     verifier: { adapter: verifier, role: { adapter: "mock", model: "mock-verifier", permissionTier: "readonly" } },
+    replanner: { adapter: replanner, role: { adapter: "mock", permissionTier: "readonly" } },
+    gardener: { adapter: gardener, role: { adapter: "mock", permissionTier: "full" } },
     stream: false,
     agentTimeoutMs: 30_000,
   };
@@ -211,6 +219,25 @@ describe("runLoop end-to-end (mock adapters, real git)", () => {
     const transitions = ctx.eventLog.read().filter((e) => e.type === "feature_transition").map((e) => (e as { featureId: string }).featureId);
     // F1 must be accepted before F2 even though F2 has the lower priority number
     expect(transitions).toEqual(["F1", "F2"]);
+  });
+
+  it("replanner can block a feature mid-run (self-improvement hook)", async () => {
+    initRepo(features([{ id: "F1", priority: 1 }, { id: "F2", priority: 2 }]));
+    const config = baseConfig((c) => { c.replan.everyIterations = 1; });
+    const replanner = new MockAdapter(() => ({
+      exitCode: 0,
+      rawOutput: `<ralph-plan-update>${JSON.stringify({ operations: [{ op: "block", featureId: "F2", reason: "descoped" }], summary: "drop F2" })}</ralph-plan-update>`,
+      durationMs: 1,
+      timedOut: false,
+    }));
+    const ctx = makeContext(config, writingCoder(), noopAdapter(), replanner);
+
+    const summary = await runLoop(ctx, { maxIterations: 10 });
+    expect(ctx.store.get("F1")!.status).toBe("passed");
+    expect(ctx.store.get("F2")!.status).toBe("blocked");
+    expect(summary.iterations).toBe(1); // F1 done, replan blocks F2 → nothing eligible
+    const replans = ctx.eventLog.read().filter((e) => e.type === "replan");
+    expect(replans.length).toBeGreaterThanOrEqual(1);
   });
 
   it("agent-reported blocked: reverts and blocks without exhausting retries", async () => {

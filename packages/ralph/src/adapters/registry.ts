@@ -1,5 +1,6 @@
 import { ClaudeAdapter } from "./claude";
 import { CodexAdapter } from "./codex";
+import { AiderAdapter } from "./aider";
 import type { RunnerAdapter } from "./types";
 
 /**
@@ -28,6 +29,8 @@ export function getAdapter(name: string): RunnerAdapter {
       return new ClaudeAdapter();
     case "codex":
       return new CodexAdapter();
+    case "aider":
+      return new AiderAdapter();
     default:
       throw new Error("Unknown adapter: " + name);
   }
