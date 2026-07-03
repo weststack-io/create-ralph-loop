@@ -1,211 +1,129 @@
-# create-ralph-loop
+# Ralph Loop
 
-Scaffold a [Ralph](https://ghuntley.com/ralph/) agentic automation loop for AI-driven iterative development.
+An optimized, codified harness for **autonomous software building**. You describe an outcome; a guardrailed loop of AI coding agents builds toward it — checkpointing, running mechanical gates, verifying its own work with an independent model, tracking cost, and supervising itself — so you supervise by exception instead of eyeballing every iteration.
 
-Ralph is a harness that drives Claude (or Codex) through a structured, iterative feature-implementation workflow. You describe your idea, the agents generate your specs and feature list, then Ralph loops through them one at a time — implementing, testing, and committing each feature automatically.
+This is a ground-up v2 of the original [Ralph](https://ghuntley.com/ralph/) technique (a stateless coding agent re-run in a loop against a feature list). The 55-line bash driver is gone; the orchestrator is now a cross-platform TypeScript runtime with real guardrails.
 
-## Quick Start
+## Packages
 
-### New Project
+| Package | What it is |
+|---|---|
+| [`ralph-loop`](packages/ralph) | The runtime CLI (`ralph`). Owns the loop, adapters, gates, verifier, budgets, telemetry. |
+| [`create-ralph-loop`](packages/create-ralph-loop) | Scaffolder. Writes a thin config + specs into a new or existing project. |
 
-```bash
-npx github:weststack-io/create-ralph-loop my-project
-cd my-project
-```
-
-Then describe your idea and let the agents do the rest:
+## Quick start
 
 ```bash
-# 1. Edit specs/phase1/PRD.md with your idea (or generate it):
-claude -p "$(cat specs/phase1/prompts/prd_prompt.md)" \
-  --allowedTools "Read,Write,Edit,Glob,Grep,Bash"
+# 1. Scaffold (new project)
+npx github:weststack-io/create-ralph-loop my-app
+cd my-app && npm install            # installs the ralph-loop runtime
 
-# 2. Generate specs, feature list, and scaffold the project:
-claude -p "$(cat specs/phase1/prompts/init_prompt.md)" \
-  --allowedTools "Read,Write,Edit,Glob,Grep,Bash"
+# 2. Generate specs from an idea (uses the planner model)
+npx ralph plan --idea "a habit-tracking PWA with streaks and reminders"
 
-# 3. Run the Ralph loop:
-./ralph.sh --claude 20
+# 3. Check the setup, then run the autonomous loop
+npx ralph doctor
+npx ralph run --budget 20           # build until done, $20 cost cap
 ```
 
-### Existing Project
+Watch progress with `ralph status`; supervise by exception via desktop/webhook notifications.
 
-Run adoption mode from an existing codebase:
+## How the loop works (v2)
+
+Each iteration is a state machine the **harness** drives — success is never self-graded:
+
+```
+select next DAG-eligible feature   ← harness picks it (agent no longer self-selects)
+      │
+   git checkpoint  (known-good commit to revert to)
+      │
+   coder agent  →  implements ONE feature, emits a <ralph-result> block
+      │
+   mechanical gates  (harness runs them, not the agent):
+      · featureIntegrity — features.json is harness-owned; edits are rejected
+      · diff size        — sanity bound on churn
+      · typecheck/test/build — baseline-relative: only NEW failures block
+      │
+   independent verifier  (fresh context, cheaper model, fail-closed)
+      │
+   ┌── all pass ─→ commit (code + status) atomically, feature = verified
+   └── any fail ─→ git reset --hard to checkpoint; retry (bounded) → block
+      │
+   budgets · stall detection · periodic replan · periodic gardening
+```
+
+Guardrails, all mechanical:
+
+- **Checkpoint + auto-revert.** A failed gate or verdict hard-reverts the iteration. No half-finished work survives.
+- **Independent, fail-closed verification.** A separate context (ideally a different/cheaper model) re-checks every claimed pass by executing the feature's steps. Ambiguous or unparseable → treated as failure.
+- **Baseline-relative gates.** Pre-existing test/type failures are tolerated; only failures your change *introduces* block it.
+- **Bounded retries → block.** After `retries.maxAttempts`, a feature is marked blocked (with the reason) and the loop moves on instead of thrashing.
+- **Budgets + stall detection.** Cost / iteration / wall-clock caps halt the run; lack of progress notifies and eventually halts.
+- **Periodic self-improvement.** A strong model reviews the plan and git history and may reprioritize / block / unblock / split / prune / add dependencies (`replan.everyIterations`). A "gardener" pass periodically cleans entropy/"AI slop" (`garden.everyIterations`).
+- **Structured telemetry.** Every event lands in `.ralph/progress.jsonl`; per-role token/cost accounting in `.ralph/run-state.json`.
+
+## Model routing
+
+Roles are mapped to (adapter, model, permission tier) in `ralph.config.json`. The shipped default routes a strong model to planning, a capable coder to building, and a cheap model to verification (validated by Aider's Architect/Editor split and RouteLLM):
+
+```jsonc
+"roles": {
+  "coder":     { "adapter": "codex",  "permissionTier": "full" },
+  "verifier":  { "adapter": "claude", "model": "claude-haiku-4-5-20251001", "permissionTier": "readonly" },
+  "planner":   { "adapter": "claude", "model": "claude-fable-5", "permissionTier": "edit" },
+  "replanner": { "adapter": "claude", "model": "claude-fable-5", "permissionTier": "readonly" }
+}
+```
+
+Adapters are pluggable (`claude`, `codex`, `aider`). Cross-vendor coder/verifier is a recommended diversity win.
+
+### Local LLMs
+
+Use the `aider` adapter with a local model — the coder runs offline while a cheap hosted verifier keeps the fail-closed safety:
+
+```jsonc
+"coder": { "adapter": "aider", "model": "ollama/qwen2.5-coder", "permissionTier": "full" }
+```
+
+## Commands
+
+```
+ralph run [--iterations N] [--budget USD] [--no-verify] [--fresh]
+ralph plan [--idea "..."] [--prd-only]     generate PRD / app_spec / features.json
+ralph dev up | down | status               dev-server lifecycle (cross-platform)
+ralph doctor                               diagnose adapters / git / config / DAG
+ralph status                               summarize the latest run
+ralph migrate                              upgrade a v1 project (feature_list.json + ralph.sh)
+ralph export --format eval-jsonl           verification records for offline eval
+```
+
+## Migrating from v1
 
 ```bash
-cd my-existing-app
-npx github:weststack-io/create-ralph-loop --adopt
+cd my-old-ralph-project
+npx ralph migrate     # feature_list.json → features.json v2, writes ralph.config.json,
+                      # parks the old bash scripts under .ralph/legacy/
+npx ralph doctor
 ```
-
-For non-interactive adoption, skip existing files and apply safe JSON/gitignore merges:
-
-```bash
-npx github:weststack-io/create-ralph-loop --adopt --yes
-```
-
-To reverse-engineer initial Ralph specs from the current codebase, use the installed Claude CLI:
-
-```bash
-npx github:weststack-io/create-ralph-loop --adopt --generate-specs
-```
-
-Use Codex for that generation pass instead:
-
-```bash
-npx github:weststack-io/create-ralph-loop --adopt --generate-specs --codex
-```
-
-## Demo
-
-Watch the full walkthrough of using the Ralph loop to build a working app from scratch:
-
-[![Watch on YouTube](https://img.shields.io/badge/YouTube-Watch%20Walkthrough-red?logo=youtube)](https://youtu.be/InIwg8_B-2U?si=iydzSiO9k3KKZv2n)
-
-The demo app built in that video is available here: [weststack-io/tether](https://github.com/weststack-io/tether)
-
-## What You Get
-
-```
-my-project/
-├── ralph.sh              # Main loop driver (runs N iterations of Claude/Codex)
-├── init.sh               # Environment setup (idempotent)
-├── scripts/
-│   ├── dev-up.sh         # Start dev server in background
-│   ├── dev-down.sh       # Stop dev server
-│   └── dev-cleanup.sh    # Clean stale global Ralph server registry entries
-├── specs/phase1/
-│   ├── PRD.md            # Product requirements (generated from your idea)
-│   ├── app_spec.txt      # Technical specification (generated from PRD)
-│   ├── feature_list.json # Feature catalog with pass/fail tracking (generated from PRD)
-│   └── prompts/
-│       ├── prd_prompt.md      # Generates PRD from your idea
-│       ├── init_prompt.md     # Generates specs + scaffolds the project
-│       └── coding_prompt.md   # 10-step workflow (run each iteration)
-├── progress.txt          # Session log (appended by the agent)
-├── CLAUDE.md             # Claude Code project instructions
-├── AGENTS.md             # Agent behavior rules
-├── .mcp.json             # Playwright MCP for browser testing
-├── .env.example          # Environment variable template, including DEV_PORT
-└── .gitignore
-```
-
-## How the Ralph Loop Works
-
-```
-ralph.sh [--claude|--codex] <iterations>
-    │
-    ├─→ dev-down.sh          (kill any stale server)
-    ├─→ init.sh              (npm install, prisma, .env)
-    ├─→ dev-up.sh            (start dev server on DEV_PORT, wait for ready)
-    │
-    └─→ FOR i=1 TO N:
-       │
-       ├─→ Feed coding_prompt.md to Claude/Codex
-       │   │
-       │   ├─ Step 1:  Orient (read progress, features, git log)
-       │   ├─ Step 2:  Verify dev server is up
-       │   ├─ Step 3:  Regression check existing features
-       │   ├─ Step 4:  Pick next unfinished feature by priority
-       │   ├─ Step 5:  Implement
-       │   ├─ Step 6:  Test (Jest + Playwright)
-       │   ├─ Step 7:  Mark feature as passing
-       │   ├─ Step 8:  Append progress notes
-       │   ├─ Step 9:  Git commit
-       │   └─ Step 10: Verify clean state (tsc, git status)
-       │
-       └─→ Exit early if <promise>COMPLETE</promise> found
-```
-
-## The Workflow
-
-### 1. Create Your Project
-
-```bash
-npx github:weststack-io/create-ralph-loop my-project
-cd my-project
-```
-
-This scaffolds the Ralph loop structure with prompts, scripts, and template spec files.
-
-### 2. Generate the PRD
-
-Before running the PRD prompt, edit the project description at the top of `specs/phase1/prompts/prd_prompt.md` with a detailed description of your idea. The more detail you provide, the better the output. Then run:
-
-```bash
-claude -p "$(cat specs/phase1/prompts/prd_prompt.md)" \
-  --allowedTools "Read,Write,Edit,Glob,Grep,Bash"
-```
-
-This generates a complete `specs/phase1/PRD.md` with requirements, user stories, and feature scope.
-
-Review the PRD and edit it if anything is off before moving on.
-
-### 3. Generate Specs and Scaffold
-
-```bash
-claude -p "$(cat specs/phase1/prompts/init_prompt.md)" \
-  --allowedTools "Read,Write,Edit,Glob,Grep,Bash"
-```
-
-This does three things in one pass:
-1. **Generates `app_spec.txt`** — data models, API routes, business logic, UI layout — all derived from your PRD
-2. **Generates `feature_list.json`** — a prioritized list of features with verification steps, all marked `passes: false`
-3. **Scaffolds the project** — Next.js app, database, types, layout, stub routes, test config, and initial git commit
-
-### 4. Run the Loop
-
-```bash
-./ralph.sh --claude 20    # 20 iterations with Claude
-./ralph.sh --codex 10     # 10 iterations with Codex
-```
-
-Each iteration implements one feature. The loop exits early when all features pass.
-
-### 5. Monitor Progress
-
-- **`progress.txt`** — Read the session log to see what was done
-- **`specs/phase1/feature_list.json`** — Check which features have `"passes": true`
-- **`git log`** — Each feature gets its own commit
-
-## CLI Options
-
-```
-Usage: create-ralph-loop [options] [project-directory]
-
-Options:
-  -y, --yes          Use defaults for all prompts
-  --no-git           Skip git init in greenfield mode
-  --no-install       Reserved for compatibility
-  --adopt            Adopt Ralph Loop into an existing project
-  --init             Alias for --adopt
-  --generate-specs   Generate adopted specs using an installed agent CLI
-  --codex            Use Codex instead of Claude for --generate-specs
-  -h, --help         Display help
-```
-
-## Adoption Mode
-
-Adoption mode layers Ralph Loop files into an existing project without replacing application code or `package.json`. It detects the package manager from lockfiles, detects common frameworks from dependencies, and adapts `init.sh`, `scripts/dev-up.sh`, and `scripts/dev-down.sh` to the detected dev command and port.
-
-When a Ralph-owned file already exists, interactive adoption prompts you to skip or overwrite it. For `CLAUDE.md` and `AGENTS.md`, it can also append a delimited Ralph section. `.mcp.json` is merged by adding the Playwright server while preserving existing MCP servers. `.gitignore` is appended with Ralph runtime files such as `.dev-server.pid` and `.dev-server.log`.
-
-`--generate-specs` does not add an SDK dependency or ask for API keys. It invokes the installed agent CLI: Claude by default, or Codex when `--codex` is provided.
-
-## Port Management
-
-Each generated or adopted project gets a `DEV_PORT` entry in `.env.local`. The CLI chooses a deterministic port in the `3000-3999` range from the project name, unless an existing `DEV_PORT` or `PORT` is already present.
-
-`scripts/dev-up.sh` reads `.env` and `.env.local`, starts the dev server with `PORT` and `DEV_PORT` exported, and registers the process in `~/.ralph/servers.json`. `scripts/dev-down.sh` removes this project's registry entry when stopping the local PID. `scripts/dev-cleanup.sh` removes stale registry entries; pass `--kill-live` to stop all live registered Ralph dev servers.
-
-If another registered Ralph project is already using the selected port, `dev-up.sh` exits with a clear message instead of killing the other project. If an unregistered process is using the port, choose another `DEV_PORT` or stop that process manually.
 
 ## Requirements
 
-- **Node.js** >= 18 (v24 LTS recommended)
-- **npm**
+- **Node.js** ≥ 18
 - **git**
-- **[Claude CLI](https://docs.anthropic.com/en/docs/claude-code)** or **[Codex CLI](https://github.com/openai/codex)**
-- **Bash shell** (native on macOS/Linux, Git Bash or WSL on Windows)
+- At least one agent CLI on PATH: [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex](https://github.com/openai/codex), or [aider](https://aider.chat) (for local models)
+- **No bash required** — the runtime is native TypeScript and works on Windows, macOS, and Linux.
+
+## Development
+
+```bash
+npm install
+npm run build      # builds both packages + generates the config JSON schema
+npm test           # vitest: unit + a real-git mock-adapter e2e suite
+```
+
+## Design provenance
+
+The guardrail design is grounded in published practice: OpenAI's harness-engineering report (Ralph loops at production scale; verification externalized into the environment; recurring "gardening" agents against entropy), the hermes-agent/Nightwire fail-closed independent-verification pattern (separate context, baseline-relative regressions, bounded self-heal), Anthropic's multi-agent cost/coordination guidance (effort scaling, max-iteration + escalation), and Aider Architect/Editor + RouteLLM for criticality-based model routing.
 
 ## License
 
