@@ -33,12 +33,16 @@
   "author": "weststack",
   "dependencies": {
     "commander": "^12.1.0",
+    "cross-spawn": "^7.0.6",
     "eta": "^3.4.0",
     "tree-kill": "^1.2.2",
     "zod": "^3.23.8"
   },
   "optionalDependencies": {
     "node-notifier": "^10.0.1"
+  },
+  "devDependencies": {
+    "@types/cross-spawn": "^6.0.6"
   },
   "engines": {
     "node": ">=18"

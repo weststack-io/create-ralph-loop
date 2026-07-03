@@ -3,5 +3,7 @@
 
 export const VERSION = "0.1.0";
 
-// Re-exports of config/features/adapter/event schemas are added once those
-// modules land (see packages/ralph/src/{config,features,adapters,events}).
+export * from "./config/schema";
+export * from "./features/schema";
+export * from "./adapters/types";
+export * from "./events/types";
