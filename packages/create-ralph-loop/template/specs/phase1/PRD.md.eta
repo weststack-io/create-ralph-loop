@@ -1,14 +1,14 @@
-# Product Requirements Document: {{projectName}}
+# Product Requirements Document: <%~ it.projectName %>
 
 **Version:** 1.0 (MVP)
 **Status:** Draft
-**Date:** {{createdAt}}
+**Date:** <%~ it.createdAt %>
 
 ---
 
 ## 1. Executive Summary
 
-{{projectDescription}}
+<%~ it.projectDescription %>
 
 TODO: Expand on what this product does, who it's for, and what the MVP scope includes.
 

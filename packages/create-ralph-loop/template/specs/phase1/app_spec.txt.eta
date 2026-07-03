@@ -1,13 +1,12 @@
 ================================================================================
-  {{projectName}} — Application Specification
+  <%~ it.projectName %> — Application Specification
 ================================================================================
 
 This document is the technical reference for coding agents. It specifies the
-tech stack, data models, API routes, business logic, and UI layout. The coding
-prompt (specs/phase1/prompts/coding_prompt.md) directs agents to reference this
-file when implementing features.
+tech stack, data models, API routes, business logic, and UI layout. The loop
+directs agents to reference this file when implementing each feature.
 
-Write this spec BEFORE running the initializer or the ralph loop.
+Write this spec BEFORE running `ralph run`.
 
 ================================================================================
   1. TECH STACK
@@ -16,11 +15,11 @@ Write this spec BEFORE running the initializer or the ralph loop.
 Framework:    Next.js (App Router, TypeScript, Tailwind CSS)
 UI:           shadcn/ui
 Database:     Prisma + SQLite (or your choice)
-Testing:      Jest + Playwright MCP
+Testing:      Vitest/Jest + Playwright MCP
 AI:           Claude API (@anthropic-ai/sdk)
 
 TODO: Add or modify the tech stack for your project. List every dependency
-the initializer should install.
+the first infrastructure feature should install.
 
 ================================================================================
   2. PROJECT STRUCTURE

@@ -1,7 +1,7 @@
 @AGENTS.md
 
-# {{projectName}}
+# <%~ it.projectName %>
 
-{{projectDescription}}
+<%~ it.projectDescription %>
 
 <!-- Add project-specific Claude Code instructions below this line -->

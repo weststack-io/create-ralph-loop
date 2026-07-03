@@ -1,0 +1,75 @@
+# <%~ it.projectName %> — Agent Operating Guide
+
+<%~ it.projectDescription %>
+
+This project is built by the **Ralph Loop** (`ralph-loop`) — an autonomous,
+guardrailed, multi-model build harness. You (the agent) implement **one feature
+per iteration** against a machine-readable contract. This file is the table of
+contents; the details live in `docs/`.
+
+---
+
+## Golden principles
+
+1. **The harness owns state, not you.** Never hand-edit `specs/phase1/features.json`,
+   `.ralph/`, or git history to fake progress. Status transitions are enforced by
+   the harness and an independent verifier.
+2. **One feature at a time.** Pick the highest-priority `pending` feature whose
+   `depends_on` are all satisfied. Implement it fully, then stop.
+3. **Make it verifiable.** Every feature has `steps[]` an independent verifier will
+   check. Build so those steps observably pass (real routes, real data, real UI).
+4. **Respect the spec.** `specs/phase1/app_spec.txt` and `PRD.md` are the source of
+   truth for stack, data models, routes, and UI. When in doubt, follow them.
+5. **Keep the tree green.** Typecheck, tests, and the diff-size gate run every
+   iteration. Don't introduce new failures; don't sprawl the diff.
+6. **Leave a trail.** Record design decisions in `docs/design/`, plans in
+   `docs/plans/`, and shortcuts you had to take in `docs/tech-debt.md`.
+
+---
+
+## Where things live
+
+| Path | Purpose |
+|---|---|
+| `ralph.config.json` | Harness config — roles/models, gates, budgets, dev server. Owned by you to tune; validated against the `ralph-loop` schema. |
+| `specs/phase1/PRD.md` | Product requirements — what and why. |
+| `specs/phase1/app_spec.txt` | Technical spec — stack, data models, routes, business logic, UI. |
+| `specs/phase1/features.json` | The v2 feature contract (DAG). **Harness-owned.** |
+| `docs/design/` | Architecture and design notes (ADR-style). |
+| `docs/plans/` | Multi-step implementation plans. |
+| `docs/tech-debt.md` | Known shortcuts and follow-ups. |
+| `.mcp.json` | Playwright MCP server for browser-based UI verification. |
+| `.ralph/` | Harness telemetry, run state, event log. **Do not edit.** |
+
+---
+
+## How the loop works (high level)
+
+Each iteration the harness:
+
+1. **Selects** the next unblocked feature from `features.json` (priority + DAG order).
+2. **Plans / builds** using the configured coder role (see `ralph.config.json`).
+3. **Runs gates** — typecheck, tests, and a diff-size guard. New failures block the claim.
+4. **Verifies** — an independent verifier confirms the feature's `steps[]` against a
+   live dev server (started for you; see `docs/dev-server.md` if present).
+5. **Records** progress into `.ralph/` and commits. Repeats until done, budget, or stall.
+
+You do not start/stop the dev server or the loop yourself — the runtime does. Run
+`ralph run` to drive it, `ralph status` to inspect, `ralph doctor` to diagnose setup.
+
+---
+
+## Do / Don't
+
+- **Do** read `specs/phase1/app_spec.txt` before writing code for a feature.
+- **Do** keep changes scoped to the current feature.
+- **Do** write or update tests so gates meaningfully protect the feature.
+- **Don't** edit `features.json`, `.ralph/`, lockfiles, or CI config to game status.
+- **Don't** mark work "done" that a verifier couldn't independently confirm.
+- **Don't** install dependencies or change framework config unless the spec requires it.
+
+<!-- BEGIN:nextjs-agent-rules -->
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
+<!-- END:nextjs-agent-rules -->
