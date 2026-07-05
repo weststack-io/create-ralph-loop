@@ -25,6 +25,19 @@ function mkTmpDir(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), "ralph-devserver-"));
 }
 
+/** Windows may lag releasing the child's log-file handle after kill; retry rm. */
+async function rmDirWithRetry(dir: string): Promise<void> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      fs.rmSync(dir, { recursive: true, force: true });
+      return;
+    } catch (e) {
+      if (attempt >= 5) throw e;
+      await new Promise((r) => setTimeout(r, 150));
+    }
+  }
+}
+
 describe("DevServerManager end-to-end", () => {
   it("starts a real server, reports running, serves requests, then stops", async () => {
     // Pseudo-random ephemeral-ish port with one retry on collision.
@@ -59,7 +72,7 @@ describe("DevServerManager end-to-end", () => {
       }
     }
 
-    fs.rmSync(cwd, { recursive: true, force: true });
+    await rmDirWithRetry(cwd);
     if (lastErr) throw lastErr;
   }, 40_000);
 

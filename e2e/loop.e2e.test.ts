@@ -102,6 +102,8 @@ function verdict(v: "pass" | "fail" | "inconclusive"): string {
 /** Coder that writes a unique source file each call and reports implemented. */
 function writingCoder(): MockAdapter {
   return new MockAdapter((req, i) => {
+    // src/ may have been removed by `git clean -fd` on a prior revert; recreate it.
+    fs.mkdirSync(path.join(req.cwd, "src"), { recursive: true });
     fs.writeFileSync(path.join(req.cwd, "src", `mod_${i}.ts`), `export const v${i} = ${i};\n`);
     return { exitCode: 0, rawOutput: result("implemented"), durationMs: 1, timedOut: false };
   });

@@ -198,16 +198,23 @@ export interface DetachedOptions {
  */
 export function spawnDetached(commandLine: string, opts: DetachedOptions): number {
   const out = fs.openSync(opts.logFile, "a");
-  const child = nodeSpawn(commandLine, [], {
-    cwd: opts.cwd,
-    env: opts.env ?? process.env,
-    shell: true,
-    windowsHide: true,
-    // New process group on POSIX so we can signal the whole tree; on Windows
-    // tree-kill walks the child tree via wmic/taskkill instead.
-    detached: process.platform !== "win32",
-    stdio: ["ignore", out, out],
-  });
-  child.unref();
-  return child.pid ?? -1;
+  try {
+    const child = nodeSpawn(commandLine, [], {
+      cwd: opts.cwd,
+      env: opts.env ?? process.env,
+      shell: true,
+      windowsHide: true,
+      // New process group on POSIX so we can signal the whole tree; on Windows
+      // tree-kill walks the child tree via wmic/taskkill instead.
+      detached: process.platform !== "win32",
+      stdio: ["ignore", out, out],
+    });
+    child.unref();
+    return child.pid ?? -1;
+  } finally {
+    // Close the parent's copy of the log fd — the child has its own inherited
+    // handle. On Windows an unclosed parent handle keeps the log file locked
+    // for the life of the harness (breaking cleanup / deletion of .ralph).
+    fs.closeSync(out);
+  }
 }
