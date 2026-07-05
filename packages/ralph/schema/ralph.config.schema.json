@@ -1,0 +1,484 @@
+{
+  "$ref": "#/definitions/RalphConfig",
+  "definitions": {
+    "RalphConfig": {
+      "type": "object",
+      "properties": {
+        "$schema": {
+          "type": "string"
+        },
+        "version": {
+          "type": "number",
+          "const": 2,
+          "default": 2
+        },
+        "specDir": {
+          "type": "string",
+          "default": "specs/phase1"
+        },
+        "roles": {
+          "type": "object",
+          "properties": {
+            "coder": {
+              "type": "object",
+              "properties": {
+                "adapter": {
+                  "type": "string"
+                },
+                "model": {
+                  "type": "string"
+                },
+                "permissionTier": {
+                  "type": "string",
+                  "enum": [
+                    "readonly",
+                    "edit",
+                    "full"
+                  ]
+                }
+              },
+              "required": [
+                "adapter"
+              ],
+              "additionalProperties": false
+            },
+            "verifier": {
+              "type": "object",
+              "properties": {
+                "adapter": {
+                  "type": "string"
+                },
+                "model": {
+                  "type": "string"
+                },
+                "permissionTier": {
+                  "type": "string",
+                  "enum": [
+                    "readonly",
+                    "edit",
+                    "full"
+                  ]
+                }
+              },
+              "required": [
+                "adapter"
+              ],
+              "additionalProperties": false
+            },
+            "planner": {
+              "type": "object",
+              "properties": {
+                "adapter": {
+                  "type": "string"
+                },
+                "model": {
+                  "type": "string"
+                },
+                "permissionTier": {
+                  "type": "string",
+                  "enum": [
+                    "readonly",
+                    "edit",
+                    "full"
+                  ]
+                }
+              },
+              "required": [
+                "adapter"
+              ],
+              "additionalProperties": false
+            },
+            "replanner": {
+              "type": "object",
+              "properties": {
+                "adapter": {
+                  "type": "string"
+                },
+                "model": {
+                  "type": "string"
+                },
+                "permissionTier": {
+                  "type": "string",
+                  "enum": [
+                    "readonly",
+                    "edit",
+                    "full"
+                  ]
+                }
+              },
+              "required": [
+                "adapter"
+              ],
+              "additionalProperties": false
+            },
+            "gardener": {
+              "type": "object",
+              "properties": {
+                "adapter": {
+                  "type": "string"
+                },
+                "model": {
+                  "type": "string"
+                },
+                "permissionTier": {
+                  "type": "string",
+                  "enum": [
+                    "readonly",
+                    "edit",
+                    "full"
+                  ]
+                }
+              },
+              "required": [
+                "adapter"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false,
+          "default": {}
+        },
+        "gates": {
+          "type": "object",
+          "properties": {
+            "typecheck": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "command": {
+                      "type": "string"
+                    },
+                    "baselineRelative": {
+                      "type": "boolean",
+                      "default": false
+                    },
+                    "timeoutMs": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "default": 600000
+                    }
+                  },
+                  "required": [
+                    "command"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "boolean",
+                  "const": false
+                }
+              ],
+              "default": {
+                "command": "npx tsc --noEmit",
+                "baselineRelative": false,
+                "timeoutMs": 600000
+              }
+            },
+            "test": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "command": {
+                      "type": "string"
+                    },
+                    "baselineRelative": {
+                      "type": "boolean",
+                      "default": false
+                    },
+                    "timeoutMs": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "default": 600000
+                    }
+                  },
+                  "required": [
+                    "command"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "boolean",
+                  "const": false
+                }
+              ],
+              "default": {
+                "command": "npm test",
+                "baselineRelative": true,
+                "timeoutMs": 600000
+              }
+            },
+            "build": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "command": {
+                      "type": "string"
+                    },
+                    "baselineRelative": {
+                      "type": "boolean",
+                      "default": false
+                    },
+                    "timeoutMs": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "default": 600000
+                    }
+                  },
+                  "required": [
+                    "command"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "boolean",
+                  "const": false
+                }
+              ],
+              "default": false
+            },
+            "diff": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "maxFiles": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    },
+                    "maxLines": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    }
+                  },
+                  "required": [
+                    "maxFiles",
+                    "maxLines"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "boolean",
+                  "const": false
+                }
+              ],
+              "default": {
+                "maxFiles": 40,
+                "maxLines": 3000
+              }
+            }
+          },
+          "additionalProperties": false,
+          "default": {}
+        },
+        "retries": {
+          "type": "object",
+          "properties": {
+            "maxAttempts": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 2
+            }
+          },
+          "additionalProperties": false,
+          "default": {
+            "maxAttempts": 2
+          }
+        },
+        "budgets": {
+          "type": "object",
+          "properties": {
+            "maxCostUsd": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "maxIterations": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "maxWallClockMinutes": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          },
+          "additionalProperties": false,
+          "default": {}
+        },
+        "replan": {
+          "type": "object",
+          "properties": {
+            "everyIterations": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          },
+          "additionalProperties": false,
+          "default": {}
+        },
+        "garden": {
+          "type": "object",
+          "properties": {
+            "everyIterations": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          },
+          "additionalProperties": false,
+          "default": {}
+        },
+        "stall": {
+          "type": "object",
+          "properties": {
+            "noProgressIterations": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "default": 4
+            }
+          },
+          "additionalProperties": false,
+          "default": {
+            "noProgressIterations": 4
+          }
+        },
+        "verify": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "unlockOn": {
+              "type": "string",
+              "enum": [
+                "verified",
+                "passed"
+              ],
+              "default": "verified"
+            }
+          },
+          "additionalProperties": false,
+          "default": {
+            "enabled": true,
+            "unlockOn": "verified"
+          }
+        },
+        "devServer": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "installCommand": {
+              "type": "string"
+            },
+            "command": {
+              "type": "string",
+              "default": "npm run dev"
+            },
+            "port": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "default": 3000
+            },
+            "readinessPath": {
+              "type": "string",
+              "default": "/"
+            },
+            "readyTimeoutMs": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "default": 120000
+            },
+            "env": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              },
+              "default": {}
+            },
+            "portRange": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": [
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                },
+                {
+                  "type": "integer",
+                  "exclusiveMinimum": 0
+                }
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "default": {
+            "enabled": true,
+            "command": "npm run dev",
+            "port": 3000,
+            "readinessPath": "/",
+            "readyTimeoutMs": 120000,
+            "env": {}
+          }
+        },
+        "notifications": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "desktop"
+                  },
+                  "events": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "const": "webhook"
+                  },
+                  "url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "events": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "type",
+                  "url"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "default": []
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

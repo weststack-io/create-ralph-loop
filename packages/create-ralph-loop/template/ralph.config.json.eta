@@ -1,0 +1,30 @@
+{
+  "$schema": "./node_modules/ralph-loop/schema/ralph.config.schema.json",
+  "version": 2,
+  "specDir": "specs/phase1",
+  "roles": {
+    "coder": { "adapter": "codex", "permissionTier": "full" },
+    "verifier": { "adapter": "claude", "model": "claude-haiku-4-5-20251001", "permissionTier": "readonly" },
+    "planner": { "adapter": "claude", "model": "claude-fable-5", "permissionTier": "edit" },
+    "replanner": { "adapter": "claude", "model": "claude-fable-5", "permissionTier": "readonly" }
+  },
+  "gates": {
+    "typecheck": { "command": "npx tsc --noEmit", "baselineRelative": false, "timeoutMs": 600000 },
+    "test": <%~ it.testGate %>,
+    "diff": { "maxFiles": 40, "maxLines": 3000 }
+  },
+  "retries": { "maxAttempts": 2 },
+  "budgets": {},
+  "replan": { "everyIterations": 10 },
+  "stall": { "noProgressIterations": 4 },
+  "verify": { "enabled": true, "unlockOn": "verified" },
+  "devServer": {
+    "command": <%~ it.devCommandJson %>,
+    "port": <%~ it.devPort %>,
+    "readinessPath": "/",
+    "readyTimeoutMs": 120000,
+    "installCommand": <%~ it.installCommandJson %>,
+    "env": {}
+  },
+  "notifications": [{ "type": "desktop" }]
+}

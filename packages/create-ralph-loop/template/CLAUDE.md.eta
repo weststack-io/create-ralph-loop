@@ -1,0 +1,7 @@
+@AGENTS.md
+
+# <%~ it.projectName %>
+
+<%~ it.projectDescription %>
+
+<!-- Add project-specific Claude Code instructions below this line -->

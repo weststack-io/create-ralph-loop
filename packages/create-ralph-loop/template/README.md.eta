@@ -1,0 +1,79 @@
+# <%~ it.projectName %>
+
+<%~ it.projectDescription %>
+
+Built with the [Ralph Loop](https://github.com/weststack/create-ralph-loop) — an
+autonomous, guardrailed, multi-model harness that builds your app one verified
+feature at a time using the `ralph-loop` runtime.
+
+## Quick Start
+
+```bash
+# 1. Install the runtime (and your app deps)
+npm install
+npm i -D ralph-loop        # if not already in devDependencies
+
+# 2. Write your specs (what to build)
+#    specs/phase1/PRD.md         — product requirements
+#    specs/phase1/app_spec.txt   — technical spec (stack, models, routes, UI)
+#    specs/phase1/features.json  — the feature contract (seeded for you)
+
+# 3. Sanity-check the setup
+npx ralph doctor
+
+# 4. Run the loop
+npx ralph run
+```
+
+`ralph run` iterates: it picks the next unblocked feature, builds it, runs the
+gates (typecheck / tests / diff-size), spins up your dev server, and has an
+independent verifier confirm each feature's steps before marking it done.
+
+## The workflow
+
+1. **Scaffold** — you've done this with `create-ralph-loop`.
+2. **Install** — `npm install` pulls in `ralph-loop` (the `ralph` CLI).
+3. **Specify** — fill in `specs/phase1/PRD.md` and `app_spec.txt`; refine the
+   seeded `features.json` (or generate specs with your own planning pass).
+4. **Run** — `npx ralph run` drives the autonomous loop.
+5. **Observe** — `npx ralph status` shows iterations, cost, and feature progress.
+
+## Useful commands
+
+| Command | What it does |
+|---|---|
+| `npx ralph run` | Run the autonomous build loop until complete, budget, or stall. |
+| `npx ralph run -n 20 -b 5` | Cap at 20 iterations / $5. |
+| `npx ralph doctor` | Diagnose setup: adapters on PATH, git repo, config, feature DAG. |
+| `npx ralph status` | Summarize the latest run from `.ralph/` telemetry. |
+| `npx ralph dev up` / `down` / `status` | Manually control the dev server. |
+| `npx ralph migrate` | Migrate a v1 project (`feature_list.json` + `ralph.sh`) to v2. |
+
+## Configuration
+
+Everything lives in **`ralph.config.json`** (validated against the `ralph-loop`
+schema):
+
+- **`roles`** — which model plays coder / verifier / planner. Ships with Codex for
+  building, Claude Haiku for cheap fail-closed verification, and Fable for planning.
+- **`gates`** — `typecheck`, `test`, `build`, and a `diff` size guard. A failing
+  gate blocks a feature claim (tests are baseline-relative: only *new* failures block).
+- **`budgets`** — optional `maxCostUsd`, `maxIterations`, `maxWallClockMinutes`.
+- **`devServer`** — command, port, readiness path, and install command. The runtime
+  starts/stops this for you; the verifier hits it to confirm UI features.
+- **`retries`**, **`replan`**, **`stall`**, **`verify`** — loop-control guardrails.
+
+## Guardrails
+
+- The harness — not the agent — owns `specs/phase1/features.json` and all status
+  transitions, so progress can't be faked.
+- An independent verifier confirms each feature's `steps[]` against a live dev
+  server before it counts as `verified`.
+- Gates keep the tree green and the diff bounded every iteration.
+
+## Requirements
+
+- **Node.js** >= 18
+- **git** (run inside a git repo)
+- **`ralph-loop`** (installed via `npm install`)
+- A coder CLI on PATH for the configured adapter (e.g. **Codex** and/or **Claude**)

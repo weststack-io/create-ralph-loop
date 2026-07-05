@@ -1,0 +1,88 @@
+{
+  "version": 2,
+  "features": [
+    {
+      "id": "INFRA-001",
+      "category": "infrastructure",
+      "priority": 1,
+      "description": "Project scaffolded with required dependencies installed and the dev server running",
+      "steps": [
+        "package.json exists with the required dependencies",
+        "`npx tsc --noEmit` reports zero errors",
+        "The dev server responds at http://localhost:<%~ it.devPort %>/"
+      ],
+      "depends_on": [],
+      "status": "pending",
+      "attempts": 0,
+      "blocked_reason": null,
+      "verification": null,
+      "lease": null
+    },
+    {
+      "id": "INFRA-002",
+      "category": "infrastructure",
+      "priority": 2,
+      "description": "Database schema defined with Prisma and migrations applied successfully",
+      "steps": [
+        "prisma/schema.prisma exists with the required models",
+        "`npx prisma migrate dev` (or `db push`) applies without errors",
+        "A database client singleton is exported from src/lib/db.ts"
+      ],
+      "depends_on": ["INFRA-001"],
+      "status": "pending",
+      "attempts": 0,
+      "blocked_reason": null,
+      "verification": null,
+      "lease": null
+    },
+    {
+      "id": "UI-001",
+      "category": "ui",
+      "priority": 3,
+      "description": "Application shell with navigation layout and placeholder pages",
+      "steps": [
+        "The main layout renders at http://localhost:<%~ it.devPort %>/",
+        "Navigation links are present and route correctly",
+        "All placeholder pages load without errors"
+      ],
+      "depends_on": ["INFRA-001"],
+      "status": "pending",
+      "attempts": 0,
+      "blocked_reason": null,
+      "verification": null,
+      "lease": null
+    },
+    {
+      "id": "FEAT-001",
+      "category": "feature",
+      "priority": 4,
+      "description": "TODO: Replace with your first product feature",
+      "steps": [
+        "TODO: Define an observable verification step",
+        "TODO: Define a second observable verification step"
+      ],
+      "depends_on": ["UI-001"],
+      "status": "pending",
+      "attempts": 0,
+      "blocked_reason": null,
+      "verification": null,
+      "lease": null
+    },
+    {
+      "id": "FEAT-002",
+      "category": "feature",
+      "priority": 5,
+      "description": "TODO: Replace with your second product feature",
+      "steps": [
+        "TODO: Define an observable verification step",
+        "TODO: Define a second observable verification step"
+      ],
+      "depends_on": [],
+      "status": "pending",
+      "attempts": 0,
+      "blocked_reason": null,
+      "verification": null,
+      "lease": null
+    }
+  ]
+}
